@@ -2,6 +2,7 @@ Multitenant Technological Demo
 ==============================
 
 How to set up:
+
 1. make a fresh new Moodle install (there is no upgrade code)
 2. set up DNS so that the server is accessible via different host names
 3. enable "tenant sites" in Exprimental settings
@@ -14,6 +15,7 @@ How to set up:
 10. login as tenant manager and jump to the tenant site via the SSO block
 
 What works:
+
 * basic user management - you need a manager role in the tenant site
 * everything bellow course level should mostly work
 
