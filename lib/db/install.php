@@ -41,6 +41,7 @@ function xmldb_main_install() {
         throw new moodle_exception('generalexceptionmessage', 'error', '', 'Can not create frontpage course, courses already exist.');
     }
     $newsite = new stdClass();
+    $newsite->tenantid     = 0;
     $newsite->fullname     = '';
     $newsite->shortname    = '';
     $newsite->summary      = NULL;
@@ -74,6 +75,7 @@ function xmldb_main_install() {
         throw new moodle_exception('generalexceptionmessage', 'error', '', 'Can not create default course category, categories already exist.');
     }
     $cat = new stdClass();
+    $cat->tenantid     = 0;
     $cat->name         = get_string('miscellaneous');
     $cat->depth        = 1;
     $cat->sortorder    = MAX_COURSES_IN_CATEGORY;
@@ -165,6 +167,7 @@ function xmldb_main_install() {
         throw new moodle_exception('generalexceptionmessage', 'error', '', 'Can not create default users, users already exist.');
     }
     $guest = new stdClass();
+    $guest->tenantid    = 0;
     $guest->auth        = 'manual';
     $guest->username    = 'guest';
     $guest->password    = hash_internal_user_password('guest');

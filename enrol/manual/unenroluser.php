@@ -48,7 +48,7 @@ $params = array('enrolid' => $ue->enrolid);
 $course = $DB->get_record_sql($sql, $params, MUST_EXIST);
 context_instance_preload($course);
 
-if ($course->id == SITEID) {
+if ($course->id == $SITE->id) {
     redirect(new moodle_url('/'));
 }
 

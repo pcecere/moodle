@@ -29,14 +29,14 @@ require_once($CFG->dirroot.'/tag/lib.php');
 require_once($CFG->libdir . '/filelib.php');
 
 $id        = optional_param('id', 0, PARAM_INT);   // user id
-$courseid  = optional_param('course', SITEID, PARAM_INT);   // course id (defaults to Site)
+$courseid  = optional_param('course', $SITE->id, PARAM_INT);   // course id (defaults to Site)
 
 if (empty($id)) {            // See your own profile by default
     require_login();
     $id = $USER->id;
 }
 
-if ($courseid == SITEID) {   // Since Moodle 2.0 all site-level profiles are shown by profile.php
+if ($courseid == $SITE->id) {   // Since Moodle 2.0 all site-level profiles are shown by profile.php
     redirect($CFG->wwwroot.'/user/profile.php?id='.$id);  // Immediate redirect
 }
 
@@ -216,7 +216,7 @@ if ($user->description && !isset($hiddenfields['description'])) {
     if (!empty($CFG->profilesforenrolledusersonly) && !$DB->record_exists('role_assignments', array('userid'=>$id))) {
         echo get_string('profilenotshown', 'moodle');
     } else {
-        if ($courseid == SITEID) {
+        if ($courseid == $SITE->id) {
             $user->description = file_rewrite_pluginfile_urls($user->description, 'pluginfile.php', $usercontext->id, 'user', 'profile', null);
         } else {
             // we have to make a little detour thought the course context to verify the access control for course profile
@@ -253,7 +253,7 @@ if (!isset($hiddenfields['lastaccess'])) {
 }
 
 // Show roles in this course
-if ($rolestring = get_user_roles_in_course($id, $course->id)) {
+if ($rolestring = get_user_roles_in_course($id, $course)) {
     print_row(get_string('roles').':', $rolestring);
 }
 

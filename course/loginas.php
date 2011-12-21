@@ -4,14 +4,14 @@
 require_once('../config.php');
 require_once('lib.php');
 
-$id = optional_param('id', SITEID, PARAM_INT);   // course id
+$id = optional_param('id', $SITE->id, PARAM_INT);   // course id
 
 /// Reset user back to their real self if needed, for security reasons you need to log out and log in again
 if (session_is_loggedinas()) {
     require_sesskey();
     require_logout();
 
-    if ($id and $id != SITEID) {
+    if ($id and $id != $SITE->id) {
         $SESSION->wantsurl = "$CFG->wwwroot/course/view.php?id=".$id;
     } else {
         $SESSION->wantsurl = "$CFG->wwwroot/";
@@ -26,7 +26,7 @@ if (session_is_loggedinas()) {
 $userid = required_param('user', PARAM_INT);         // login as this user
 
 $url = new moodle_url('/course/loginas.php', array('user'=>$userid, 'sesskey'=>sesskey()));
-if ($id !== SITEID) {
+if ($id !== $SITE->id) {
     $url->param('id', $id);
 }
 $PAGE->set_url($url);

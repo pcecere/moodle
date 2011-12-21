@@ -71,7 +71,7 @@ if ($inpopup) {
 }
 
 
-if ($course->id == SITEID) {
+if ($course->id == $SITE->id) {
     admin_externalpage_setup('reportloglive', '', null, '', array('pagelayout'=>'report'));
     echo $OUTPUT->header();
 

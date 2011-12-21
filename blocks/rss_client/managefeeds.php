@@ -32,7 +32,7 @@ $returnurl = optional_param('returnurl', '', PARAM_LOCALURL);
 $courseid = optional_param('courseid', 0, PARAM_INTEGER);
 $deleterssid = optional_param('deleterssid', 0, PARAM_INTEGER);
 
-if ($courseid == SITEID) {
+if ($courseid == $SITE->id) {
     $courseid = 0;
 }
 if ($courseid) {

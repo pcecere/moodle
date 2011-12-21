@@ -28,13 +28,13 @@ require_once("$CFG->libdir/formslib.php");
 class mod_scorm_report_interactions_settings extends moodleform {
 
     function definition() {
-        global $COURSE;
+        global $COURSE, $SITE;
         $mform    =& $this->_form;
         //-------------------------------------------------------------------------------
         $mform->addElement('header', 'preferencespage', get_string('preferencespage', 'scorm'));
 
         $options = array();
-        if ($COURSE->id != SITEID) {
+        if ($COURSE->id != $SITE->id) {
             $options[SCORM_REPORT_ATTEMPTS_ALL_STUDENTS] = get_string('optallstudents', 'scorm');
             $options[SCORM_REPORT_ATTEMPTS_STUDENTS_WITH] = get_string('optattemptsonly', 'scorm');
             $options[SCORM_REPORT_ATTEMPTS_STUDENTS_WITH_NO] = get_string('optnoattemptsonly', 'scorm');

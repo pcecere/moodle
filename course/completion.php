@@ -44,7 +44,7 @@ $id = required_param('id', PARAM_INT);       // course id
 /// basic access control checks
 if ($id) { // editing course
 
-    if($id == SITEID){
+    if($id == $SITE->id){
         // don't allow editing of  'site course' using this from
         print_error('cannoteditsiteform');
     }

@@ -1610,7 +1610,7 @@ class auth_plugin_ldap extends auth_plugin_base {
      *
      */
     function ntlmsso_finish() {
-        global $CFG, $USER, $SESSION;
+        global $CFG, $USER, $SESSION, $SITE;
 
         $key = sesskey();
         $cf = get_cache_flags($this->pluginconfig.'/ntlmsess');
@@ -1622,7 +1622,7 @@ class auth_plugin_ldap extends auth_plugin_base {
         // to make sure no step is bypassed...
         $user = authenticate_user_login($username, $key);
         if ($user) {
-            add_to_log(SITEID, 'user', 'login', "view.php?id=$USER->id&course=".SITEID,
+            add_to_log($SITE->id, 'user', 'login', "view.php?id=$USER->id&course=".$SITE->id,
                        $user->id, 0, $user->id);
             complete_user_login($user);
 

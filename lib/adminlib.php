@@ -1162,7 +1162,8 @@ class admin_externalpage implements part_of_admin_tree {
      */
     public function check_access() {
         global $CFG;
-        $context = empty($this->context) ? get_context_instance(CONTEXT_SYSTEM) : $this->context;
+        // NOTE: do NOT use tenant context here!!
+        $context = empty($this->context) ? context_system::instance() : $this->context;
         foreach($this->req_capability as $cap) {
             if (has_capability($cap, $context)) {
                 return true;
@@ -3025,7 +3026,7 @@ class admin_setting_sitesetselect extends admin_setting_configselect {
             return get_string('errorsetting', 'admin');
         }
         $record = new stdClass();
-        $record->id           = SITEID;
+        $record->id           = $SITE->id;
         $temp                 = $this->name;
         $record->$temp        = $data;
         $record->timemodified = time();
@@ -3214,7 +3215,7 @@ class admin_setting_sitesetcheckbox extends admin_setting_configcheckbox {
     public function write_setting($data) {
         global $DB, $SITE;
         $record = new stdClass();
-        $record->id            = SITEID;
+        $record->id            = $SITE->id;
         $record->{$this->name} = ($data == '1' ? 1 : 0);
         $record->timemodified  = time();
         // update $SITE
@@ -3273,7 +3274,7 @@ class admin_setting_sitesettext extends admin_setting_configtext {
         }
 
         $record = new stdClass();
-        $record->id            = SITEID;
+        $record->id            = $SITE->id;
         $record->{$this->name} = $data;
         $record->timemodified  = time();
         // update $SITE
@@ -3315,7 +3316,7 @@ class admin_setting_special_frontpagedesc extends admin_setting {
     public function write_setting($data) {
         global $DB, $SITE;
         $record = new stdClass();
-        $record->id            = SITEID;
+        $record->id            = $SITE->id;
         $record->{$this->name} = $data;
         $record->timemodified  = time();
         $SITE->{$this->name} = $data;
@@ -5898,7 +5899,7 @@ function admin_externalpage_setup($section, $extrabutton = '', array $extraurlpa
  * @return object admin_root object
  */
 function admin_get_root($reload=false, $requirefulltree=true) {
-    global $CFG, $DB, $OUTPUT;
+    global $CFG, $DB, $OUTPUT, $TENANT, $SITE; // may be necessary for the required scripts
 
     static $ADMIN = NULL;
 
@@ -5912,21 +5913,29 @@ function admin_get_root($reload=false, $requirefulltree=true) {
     }
 
     if (!$ADMIN->loaded) {
-    // we process this file first to create categories first and in correct order
-        require($CFG->dirroot.'/'.$CFG->admin.'/settings/top.php');
+        if ($TENANT->id) {
+            require($CFG->dirroot.'/'.$CFG->admin.'/settings/tenant.php');
 
-        // now we process all other files in admin/settings to build the admin tree
-        foreach (glob($CFG->dirroot.'/'.$CFG->admin.'/settings/*.php') as $file) {
-            if ($file == $CFG->dirroot.'/'.$CFG->admin.'/settings/top.php') {
-                continue;
+        } else {
+            // we process this file first to create categories first and in correct order
+            require($CFG->dirroot.'/'.$CFG->admin.'/settings/top.php');
+
+            // now we process all other files in admin/settings to build the admin tree
+            foreach (glob($CFG->dirroot.'/'.$CFG->admin.'/settings/*.php') as $file) {
+                if ($file == $CFG->dirroot.'/'.$CFG->admin.'/settings/top.php') {
+                    continue;
+                }
+                if ($file == $CFG->dirroot.'/'.$CFG->admin.'/settings/tenant.php') {
+                    continue;
+                }
+                if ($file == $CFG->dirroot.'/'.$CFG->admin.'/settings/plugins.php') {
+                // plugins are loaded last - they may insert pages anywhere
+                    continue;
+                }
+                require($file);
             }
-            if ($file == $CFG->dirroot.'/'.$CFG->admin.'/settings/plugins.php') {
-            // plugins are loaded last - they may insert pages anywhere
-                continue;
-            }
-            require($file);
+            require($CFG->dirroot.'/'.$CFG->admin.'/settings/plugins.php');
         }
-        require($CFG->dirroot.'/'.$CFG->admin.'/settings/plugins.php');
 
         $ADMIN->loaded = true;
     }

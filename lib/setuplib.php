@@ -204,6 +204,24 @@ class coding_exception extends moodle_exception {
 }
 
 /**
+ * Cross tenant access detected, execution can not continue.
+ *
+ * @package    core
+ * @subpackage lib
+ * @copyright  2011 Petr Skoda  {@link http://skodak.org}
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
+class tenant_access_exception extends moodle_exception {
+    /**
+     * Constructor
+     * @param string $debuginfo detailed information how to fix problem
+     */
+    function __construct($debuginfo=null) {
+        parent::__construct('invalidtenantaccess', 'debug', '', null, $debuginfo);
+    }
+}
+
+/**
  * Exception indicating malformed parameter problem.
  * This exception is not supposed to be thrown when processing
  * user submitted data in forms. It is more suitable
@@ -663,16 +681,68 @@ function initialise_cfg() {
 }
 
 /**
+ * Overrides global $CFG with tenant settings.
+ *
+ * This must be used only once after loading $CFG!
+ */
+function load_tenant_cfg() {
+    global $CFG, $DB, $TENANT;
+
+    if (empty($TENANT->id)) {
+        return;
+    }
+
+    $tenantcfg = $DB->get_records_menu('config_tenants', array('tenantid'=>$TENANT->id, 'plugin'=>null), '', 'name,value');
+    foreach ($tenantcfg as $name=>$value) {
+        if (isset($CFG->config_php_settings[$name])) {
+            // can not change forced settings
+            continue;
+        }
+        $CFG->{$name} = $value;
+    }
+
+    $CFG->mainroot = $CFG->wwwroot;
+
+    // automatic tenant overrides
+    $CFG->wwwroot = $TENANT->wwwroot;
+    $CFG->httpswwwroot = $CFG->wwwroot;
+    $CFG->mnet_localhost_id = $TENANT->hostid;
+
+    // disable things that can not work in tenants
+    $CFG->mnet_dispatcher_mode = 'off';
+
+    // disable things that need major rewrite to make them compatible
+    $CFG->enablewebservices = 0;
+    $CFG->usetags = 0;
+    $CFG->bloglevel = 0;
+    $CFG->enablestats = 0;
+    $CFG->enableportfolios = 0;
+    $CFG->messaging = 0;
+    $CFG->enablerssfeeds = 0;
+
+    // following subsystems need some changes to make them compatible
+    $CFG->enableoutcomes = 0;
+    $CFG->usecomments = 0;
+    $CFG->enablenotes = 0;
+    $CFG->enablecompletion = 0;
+    $CFG->enableavailability = 0;
+    $CFG->enableplagiarism = 0;
+}
+
+/**
  * Initialises $FULLME and friends. Private function. Should only be called from
  * setup.php.
  */
 function initialise_fullme() {
-    global $CFG, $FULLME, $ME, $SCRIPT, $FULLSCRIPT;
+    global $CFG, $FULLME, $ME, $SCRIPT, $FULLSCRIPT, $TENANT, $DB;
 
     // Detect common config error.
     if (substr($CFG->wwwroot, -1) == '/') {
         print_error('wwwrootslash', 'error');
     }
+
+    $TENANT = new stdClass();
+    $TENANT->id = 0;
 
     if (CLI_SCRIPT) {
         initialise_fullme_cli();
@@ -689,6 +759,34 @@ function initialise_fullme() {
         // $CFG->reverseproxy specifies if reverse proxy server used
         // Used in load balancing scenarios.
         // Do not abuse this to try to solve lan/wan access problems!!!!!
+
+    } else if (!empty($CFG->enabletenants)) {
+        if (($rurl['host'] === $wwwroot['host']) and (empty($wwwroot['port']) or $rurl['port'] == $wwwroot['port'])) {
+            // standard site
+        } else {
+            try {
+                $tenants = $DB->get_records('tenant', array('status'=>0));
+                foreach ($tenants as $tenant) {
+                    if ($tenant->wwwroot === $CFG->wwwroot) {
+                        continue;
+                        // tenant can not have the same wwwroot as the main site
+                    }
+                    $wwwroot = parse_url($tenant->wwwroot.'/');
+                    if (($rurl['host'] === $wwwroot['host']) and (empty($wwwroot['port']) or $rurl['port'] == $wwwroot['port'])) {
+                        $TENANT = $tenant;
+                        $CFG->wwwroot = $tenant->wwwroot;
+                        break;
+                    }
+                }
+            } catch (Exception $e) {
+            }
+            if ($TENANT->id == 0) {
+                if (!defined('NO_MOODLE_COOKIES')) {
+                    define('NO_MOODLE_COOKIES', true);
+                }
+                redirect($CFG->wwwroot, get_string('wwwrootmismatch', 'error', $CFG->wwwroot), 3);
+            }
+        }
 
     } else {
         if (($rurl['host'] !== $wwwroot['host']) or (!empty($wwwroot['port']) and $rurl['port'] != $wwwroot['port'])) {
@@ -744,6 +842,8 @@ function initialise_fullme() {
  */
 function initialise_fullme_cli() {
     global $CFG, $FULLME, $ME, $SCRIPT, $FULLSCRIPT;
+
+    // NOTE: no support for tenants yet
 
     // Urls do not make much sense in CLI scripts
     $backtrace = debug_backtrace();

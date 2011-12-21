@@ -55,10 +55,10 @@
             unset($SESSION->lang);
             $SESSION->justloggedin = true;
 
-            add_to_log(SITEID, 'user', 'login', "view.php?id=$USER->id&course=".SITEID, $USER->id, 0, $USER->id);
+            add_to_log($SITE->id, 'user', 'login', "view.php?id=$USER->id&course=".$SITE->id, $USER->id, 0, $USER->id);
 
             if (user_not_fully_set_up($USER)) {
-                $urltogo = $CFG->wwwroot.'/user/edit.php?id='.$USER->id.'&amp;course='.SITEID;
+                $urltogo = $CFG->wwwroot.'/user/edit.php?id='.$USER->id.'&amp;course='.$SITE->id;
                 // We don't delete $SESSION->wantsurl yet, so we get there later
 
             } else if (isset($SESSION->wantsurl) and (strpos($SESSION->wantsurl, $CFG->wwwroot) === 0)) {

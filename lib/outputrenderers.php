@@ -740,13 +740,13 @@ class core_renderer extends renderer_base {
      * @return string
      */
     public function lang_menu() {
-        global $CFG;
+        global $CFG, $SITE;
 
         if (empty($CFG->langmenu)) {
             return '';
         }
 
-        if ($this->page->course != SITEID and !empty($this->page->course->lang)) {
+        if ($this->page->course != $SITE->id and !empty($this->page->course->lang)) {
             // do not show lang menu if language forced
             return '';
         }
@@ -1785,7 +1785,7 @@ class core_renderer extends renderer_base {
      * @return string
      */
     protected function render_user_picture(user_picture $userpicture) {
-        global $CFG, $DB;
+        global $CFG, $DB, $SITE;
 
         $user = $userpicture->user;
 
@@ -1831,7 +1831,7 @@ class core_renderer extends renderer_base {
             $courseid = $userpicture->courseid;
         }
 
-        if ($courseid == SITEID) {
+        if ($courseid == $SITE->id) {
             $url = new moodle_url('/user/profile.php', array('id' => $user->id));
         } else {
             $url = new moodle_url('/user/view.php', array('id' => $user->id, 'course' => $courseid));

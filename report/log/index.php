@@ -138,7 +138,7 @@ if (!empty($chooselog)) {
 
     switch ($logformat) {
         case 'showashtml':
-            if ($hostid != $CFG->mnet_localhost_id || $course->id == SITEID) {
+            if ($hostid != $CFG->mnet_localhost_id || $course->id == $SITE->id) {
                 admin_externalpage_setup('reportlog');
                 echo $OUTPUT->header();
 
@@ -185,7 +185,7 @@ if (!empty($chooselog)) {
 
 
 } else {
-    if ($hostid != $CFG->mnet_localhost_id || $course->id == SITEID) {
+    if ($hostid != $CFG->mnet_localhost_id || $course->id == $SITE->id) {
         admin_externalpage_setup('reportlog', '', null, '', array('pagelayout'=>'report'));
         echo $OUTPUT->header();
     } else {

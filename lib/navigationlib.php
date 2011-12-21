@@ -1018,7 +1018,7 @@ class global_navigation extends navigation_node {
      */
     public function initialise() {
         global $CFG, $SITE, $USER, $DB;
-        // Check if it has alread been initialised
+        // Check if it has already been initialised
         if ($this->initialised || during_initial_install()) {
             return true;
         }
@@ -1060,7 +1060,7 @@ class global_navigation extends navigation_node {
         $mycourses = enrol_get_my_courses(NULL, 'visible DESC,sortorder ASC', $limit);
         $showallcourses = (count($mycourses) == 0 || !empty($CFG->navshowallcourses));
         $showcategories = ($showallcourses && $this->show_categories());
-        $issite = ($this->page->course->id == SITEID);
+        $issite = ($this->page->course->id == $SITE->id);
         $ismycourse = (array_key_exists($this->page->course->id, $mycourses));
 
         // Check if any courses were returned.
@@ -1088,6 +1088,7 @@ class global_navigation extends navigation_node {
             // Next load context specific content into the navigation
             switch ($this->page->context->contextlevel) {
                 case CONTEXT_SYSTEM :
+                case CONTEXT_TENANT :
                     // This has already been loaded we just need to map the variable
                     $coursenode = $frontpagecourse;
                     $this->load_all_categories(null, $showcategories);
@@ -1174,7 +1175,7 @@ class global_navigation extends navigation_node {
                     $this->add_course_essentials($coursenode, $course);
                     // Load the course sections into the page
                     $sections = $this->load_course_sections($course, $coursenode);
-                    if ($course->id != SITEID) {
+                    if ($course->id != $SITE->id) {
                         // Find the section for the $CM associated with the page and collect
                         // its section number.
                         if (isset($cm->sectionnum)) {
@@ -1270,7 +1271,7 @@ class global_navigation extends navigation_node {
 
         // Load for the current user
         $this->load_for_user();
-        if ($this->page->context->contextlevel >= CONTEXT_COURSE && $this->page->context->instanceid != SITEID && $canviewcourseprofile) {
+        if ($this->page->context->contextlevel >= CONTEXT_COURSE && $this->page->context->instanceid != $SITE->id && $canviewcourseprofile) {
             $this->load_for_user(null, true);
         }
         // Load each extending user into the navigation.
@@ -1368,7 +1369,7 @@ class global_navigation extends navigation_node {
      * @return array An array of navigation_node
      */
     protected function load_all_courses($categoryids=null) {
-        global $CFG, $DB, $USER;
+        global $CFG, $DB, $USER, $SITE, $TENANT;
 
         if ($categoryids !== null) {
             if (is_array($categoryids)) {
@@ -1377,20 +1378,21 @@ class global_navigation extends navigation_node {
                 $categoryselect = '= :categoryid';
                 $params = array('categoryid', $categoryids);
             }
-            $params['siteid'] = SITEID;
+            $params['siteid'] = $SITE->id;
             $categoryselect = ' AND c.category '.$categoryselect;
         } else {
-            $params = array('siteid' => SITEID);
+            $params = array('siteid' => $SITE->id);
             $categoryselect = '';
         }
+        $params['tenantid'] = $TENANT->id;
 
         list($ccselect, $ccjoin) = context_instance_preload_sql('c.id', CONTEXT_COURSE, 'ctx');
-        list($courseids, $courseparams) = $DB->get_in_or_equal(array_keys($this->addedcourses) + array(SITEID), SQL_PARAMS_NAMED, 'lcourse', false);
+        list($courseids, $courseparams) = $DB->get_in_or_equal(array_keys($this->addedcourses) + array($SITE->id), SQL_PARAMS_NAMED, 'lcourse', false);
         $sql = "SELECT c.id, c.sortorder, c.visible, c.fullname, c.shortname, c.category, cat.path AS categorypath $ccselect
                   FROM {course} c
                        $ccjoin
-             LEFT JOIN {course_categories} cat ON cat.id=c.category
-                 WHERE c.id {$courseids} {$categoryselect}
+             LEFT JOIN {course_categories} cat ON (cat.id=c.category AND cat.tenantid = c.tenantid)
+                 WHERE c.id {$courseids} {$categoryselect} AND c.tenantid = :tenantid
               ORDER BY c.sortorder ASC";
         $limit = 20;
         if (!empty($CFG->navcourselimit)) {
@@ -1415,7 +1417,7 @@ class global_navigation extends navigation_node {
      * @return void
      */
     protected function load_all_categories($categoryid = null, $showbasecategories = false) {
-        global $DB;
+        global $DB, $TENANT;
 
         // Check if this category has already been loaded
         if ($categoryid !== null && array_key_exists($categoryid, $this->addedcategories) && $this->addedcategories[$categoryid]->children->count() > 0) {
@@ -1425,7 +1427,7 @@ class global_navigation extends navigation_node {
         $coursestoload = array();
         if (empty($categoryid)) { // can be 0
             // We are going to load all of the first level categories (categories without parents)
-            $categories = $DB->get_records('course_categories', array('parent'=>'0'), 'sortorder ASC, id ASC');
+            $categories = $DB->get_records('course_categories', array('parent'=>'0', 'tenantid'=>$TENANT->id), 'sortorder ASC, id ASC');
         } else if (array_key_exists($categoryid, $this->addedcategories)) {
             // The category itself has been loaded already so we just need to ensure its subcategories
             // have been loaded
@@ -1435,16 +1437,17 @@ class global_navigation extends navigation_node {
                 $sql = "SELECT *
                           FROM {course_categories} cc
                          WHERE (parent = :categoryid OR parent = 0) AND
-                               parent {$sql}
+                               parent {$sql} AND cc.tenantie = :tenantid
                       ORDER BY depth DESC, sortorder ASC, id ASC";
             } else {
                 $sql = "SELECT *
                           FROM {course_categories} cc
                          WHERE parent = :categoryid AND
-                               parent {$sql}
+                               parent {$sql} AND cc.tenantid = :tenantid
                       ORDER BY depth DESC, sortorder ASC, id ASC";
             }
             $params['categoryid'] = $categoryid;
+            $params['tenantid'] = $TENANT->id;
             $categories = $DB->get_records_sql($sql, $params);
             if (count($categories) == 0) {
                 // There are no further categories that require loading.
@@ -1453,7 +1456,7 @@ class global_navigation extends navigation_node {
         } else {
             // This category hasn't been loaded yet so we need to fetch it, work out its category path
             // and load this category plus all its parents and subcategories
-            $category = $DB->get_record('course_categories', array('id' => $categoryid), 'path', MUST_EXIST);
+            $category = $DB->get_record('course_categories', array('id' => $categoryid, 'tenantid'=>$TENANT->id), 'path', MUST_EXIST);
             $coursestoload = explode('/', trim($category->path, '/'));
             list($select, $params) = $DB->get_in_or_equal($coursestoload);
             $select = 'id '.$select.' OR parent '.$select;
@@ -1461,7 +1464,8 @@ class global_navigation extends navigation_node {
                 $select .= ' OR parent = 0';
             }
             $params = array_merge($params, $params);
-            $categories = $DB->get_records_select('course_categories', $select, $params, 'sortorder');
+            $params[] = $TENANT->id;
+            $categories = $DB->get_records_select('course_categories', "($select) AND tenantid = ?", $params, 'sortorder');
         }
 
         // Now we have an array of categories we need to add them to the navigation.
@@ -1538,7 +1542,9 @@ class global_navigation extends navigation_node {
      * @return navigation_node
      */
     protected function load_course(stdClass $course) {
-        if ($course->id == SITEID) {
+        global $SITE;
+
+        if ($course->id == $SITE->id) {
             return $this->rootnodes['site'];
         } else if (array_key_exists($course->id, $this->addedcourses)) {
             return $this->addedcourses[$course->id];
@@ -1650,7 +1656,7 @@ class global_navigation extends navigation_node {
      * @return array An array of course section nodes
      */
     public function load_generic_course_sections(stdClass $course, navigation_node $coursenode, $courseformat='unknown') {
-        global $CFG, $DB, $USER;
+        global $CFG, $DB, $USER, $SITE;
         require_once($CFG->dirroot.'/course/lib.php');
 
         list($sections, $activities) = $this->generate_sections_and_activities($course);
@@ -1674,7 +1680,7 @@ class global_navigation extends navigation_node {
         $navigationsections = array();
         foreach ($sections as $sectionid => $section) {
             $section = clone($section);
-            if ($course->id == SITEID) {
+            if ($course->id == $SITE->id) {
                 $this->load_section_activities($coursenode, $section->section, $activities);
             } else {
                 if ((!$viewhiddensections && !$section->visible) || (!$this->showemptysections && !$section->hasactivites)) {
@@ -1851,7 +1857,7 @@ class global_navigation extends navigation_node {
      * @return bool
      */
     protected function load_for_user($user=null, $forceforcontext=false) {
-        global $DB, $CFG, $USER;
+        global $DB, $CFG, $USER, $SITE, $TENANT;
 
         if ($user === null) {
             // We can't require login here but if the user isn't logged in we don't
@@ -1868,6 +1874,10 @@ class global_navigation extends navigation_node {
             context_instance_preload($user);
         }
 
+        if ($user->tenantid != $TENANT->id) {
+            return false;
+        }
+
         $iscurrentuser = ($user->id == $USER->id);
 
         $usercontext = get_context_instance(CONTEXT_USER, $user->id);
@@ -1875,14 +1885,14 @@ class global_navigation extends navigation_node {
         // Get the course set against the page, by default this will be the site
         $course = $this->page->course;
         $baseargs = array('id'=>$user->id);
-        if ($course->id != SITEID && (!$iscurrentuser || $forceforcontext)) {
+        if ($course->id != $SITE->id && (!$iscurrentuser || $forceforcontext)) {
             $coursenode = $this->load_course($course);
             $baseargs['course'] = $course->id;
             $coursecontext = get_context_instance(CONTEXT_COURSE, $course->id);
             $issitecourse = false;
         } else {
             // Load all categories and get the context for the system
-            $coursecontext = get_context_instance(CONTEXT_SYSTEM);
+            $coursecontext = context_helper::top_context();
             $issitecourse = true;
         }
 
@@ -2035,7 +2045,7 @@ class global_navigation extends navigation_node {
             if ($haseditabletypes) {
                 $usernode->add(get_string('repositories', 'repository'), new moodle_url('/repository/manage_instances.php', array('contextid' => $usercontext->id)));
             }
-        } else if ($course->id == SITEID && has_capability('moodle/user:viewdetails', $usercontext) && (!in_array('mycourses', $hiddenfields) || has_capability('moodle/user:viewhiddendetails', $coursecontext))) {
+        } else if ($course->id == $SITE->id && has_capability('moodle/user:viewdetails', $usercontext) && (!in_array('mycourses', $hiddenfields) || has_capability('moodle/user:viewhiddendetails', $coursecontext))) {
 
             // Add view grade report is permitted
             $reports = get_plugin_list('gradereport');
@@ -2134,7 +2144,7 @@ class global_navigation extends navigation_node {
      * @return navigation_node
      */
     public function add_course(stdClass $course, $forcegeneric = false, $ismycourse = false) {
-        global $CFG;
+        global $CFG, $SITE;
 
         // We found the course... we can return it now :)
         if (!$forcegeneric && array_key_exists($course->id, $this->addedcourses)) {
@@ -2143,7 +2153,7 @@ class global_navigation extends navigation_node {
 
         $coursecontext = get_context_instance(CONTEXT_COURSE, $course->id);
 
-        if ($course->id != SITEID && !$course->visible) {
+        if ($course->id != $SITE->id && !$course->visible) {
             if (is_role_switched($course->id)) {
                 // user has to be able to access course in order to switch, let's skip the visibility test here
             } else if (!has_capability('moodle/course:viewhiddencourses', $coursecontext)) {
@@ -2151,7 +2161,7 @@ class global_navigation extends navigation_node {
             }
         }
 
-        $issite = ($course->id == SITEID);
+        $issite = ($course->id == $SITE->id);
         $ismycourse = ($ismycourse && !$forcegeneric);
         $shortname = format_string($course->shortname, true, array('context' => $coursecontext));
 
@@ -2219,9 +2229,9 @@ class global_navigation extends navigation_node {
      * @return bool
      */
     public function add_course_essentials($coursenode, stdClass $course) {
-        global $CFG;
+        global $CFG, $SITE;
 
-        if ($course->id == SITEID) {
+        if ($course->id == $SITE->id) {
             return $this->add_front_page_course_essentials($coursenode, $course);
         }
 
@@ -2233,7 +2243,7 @@ class global_navigation extends navigation_node {
         if (has_capability('moodle/course:viewparticipants', $this->page->context)) {
             $participants = $coursenode->add(get_string('participants'), new moodle_url('/user/index.php?id='.$course->id), self::TYPE_CONTAINER, get_string('participants'), 'participants');
             $currentgroup = groups_get_course_group($course, true);
-            if ($course->id == SITEID) {
+            if ($course->id == $SITE->id) {
                 $filterselect = '';
             } else if ($course->id && !$currentgroup) {
                 $filterselect = $course->id;
@@ -2372,10 +2382,12 @@ class global_navigation extends navigation_node {
      * @return <type>
      */
     public function set_expansion_limit($type) {
+        global $SITE;
+
         $nodes = $this->find_all_of_type($type);
         foreach ($nodes as &$node) {
             // We need to generate the full site node
-            if ($type == self::TYPE_COURSE && $node->key == SITEID) {
+            if ($type == self::TYPE_COURSE && $node->key == $SITE->id) {
                 continue;
             }
             foreach ($node->children as &$child) {
@@ -2477,7 +2489,7 @@ class global_navigation_for_ajax extends global_navigation {
      * @return array The expandable nodes
      */
     public function initialise() {
-        global $CFG, $DB, $SITE;
+        global $CFG, $DB, $SITE, $TENANT;
 
         if ($this->initialised || during_initial_install()) {
             return $this->expandable;
@@ -2496,13 +2508,13 @@ class global_navigation_for_ajax extends global_navigation {
                 if (!empty($CFG->navcourselimit)) {
                     $limit = (int)$CFG->navcourselimit;
                 }
-                $courses = $DB->get_records('course', array('category' => $this->instanceid), 'sortorder','*', 0, $limit);
+                $courses = $DB->get_records('course', array('category' => $this->instanceid, 'tenantid' => $TENANT->id), 'sortorder','*', 0, $limit);
                 foreach ($courses as $course) {
                     $this->add_course($course);
                 }
                 break;
             case self::TYPE_COURSE :
-                $course = $DB->get_record('course', array('id' => $this->instanceid), '*', MUST_EXIST);
+                $course = $DB->get_record('course', array('id' => $this->instanceid, 'tenantid' => $TENANT->id), '*', MUST_EXIST);
                 require_course_login($course);
                 $this->page->set_context(get_context_instance(CONTEXT_COURSE, $course->id));
                 $coursenode = $this->add_course($course);
@@ -2515,8 +2527,8 @@ class global_navigation_for_ajax extends global_navigation {
                 $sql = 'SELECT c.*, cs.section AS sectionnumber
                         FROM {course} c
                         LEFT JOIN {course_sections} cs ON cs.course = c.id
-                        WHERE cs.id = ?';
-                $course = $DB->get_record_sql($sql, array($this->instanceid), MUST_EXIST);
+                        WHERE cs.id = ? AND c.tenantid = ?';
+                $course = $DB->get_record_sql($sql, array($this->instanceid, $TENANT->id), MUST_EXIST);
                 require_course_login($course);
                 $this->page->set_context(get_context_instance(CONTEXT_COURSE, $course->id));
                 $coursenode = $this->add_course($course);
@@ -2529,15 +2541,15 @@ class global_navigation_for_ajax extends global_navigation {
                 $sql = "SELECT c.*
                           FROM {course} c
                           JOIN {course_modules} cm ON cm.course = c.id
-                         WHERE cm.id = :cmid";
-                $params = array('cmid' => $this->instanceid);
+                         WHERE cm.id = :cmid AND c.tenantid = :tenantid";
+                $params = array('cmid' => $this->instanceid, 'tenantid' => $TENANT->id);
                 $course = $DB->get_record_sql($sql, $params, MUST_EXIST);
                 $modinfo = get_fast_modinfo($course);
                 $cm = $modinfo->get_cm($this->instanceid);
                 require_course_login($course, true, $cm);
                 $this->page->set_context(get_context_instance(CONTEXT_MODULE, $cm->id));
                 $coursenode = $this->load_course($course);
-                if ($course->id == SITEID) {
+                if ($course->id == $SITE->id) {
                     $modulenode = $this->load_activity($cm, $course, $coursenode->find($cm->id, self::TYPE_ACTIVITY));
                 } else {
                     $sections   = $this->load_course_sections($course, $coursenode);
@@ -2551,7 +2563,7 @@ class global_navigation_for_ajax extends global_navigation {
                 return $this->expandable;
         }
 
-        if ($this->page->context->contextlevel == CONTEXT_COURSE && $this->page->context->instanceid != SITEID) {
+        if ($this->page->context->contextlevel == CONTEXT_COURSE && $this->page->context->instanceid != $SITE->id) {
             $this->load_for_user(null, true);
         }
 
@@ -2831,7 +2843,7 @@ class settings_navigation extends navigation_node {
      *
      */
     public function initialise() {
-        global $DB, $SESSION;
+        global $DB, $SESSION, $SITE;
 
         if (during_initial_install()) {
             return false;
@@ -2849,6 +2861,7 @@ class settings_navigation extends navigation_node {
 
         switch ($context->contextlevel) {
             case CONTEXT_SYSTEM:
+            case CONTEXT_TENANT:
                 if ($this->page->url->compare(new moodle_url('/admin/settings.php', array('section'=>'frontpagesettings')))) {
                     $this->load_front_page_settings(($context->id == $this->context->id));
                 }
@@ -2857,7 +2870,7 @@ class settings_navigation extends navigation_node {
                 $this->load_category_settings();
                 break;
             case CONTEXT_COURSE:
-                if ($this->page->course->id != SITEID) {
+                if ($this->page->course->id != $SITE->id) {
                     $this->load_course_settings(($context->id == $this->context->id));
                 } else {
                     $this->load_front_page_settings(($context->id == $this->context->id));
@@ -2868,7 +2881,7 @@ class settings_navigation extends navigation_node {
                 $this->load_course_settings();
                 break;
             case CONTEXT_USER:
-                if ($this->page->course->id != SITEID) {
+                if ($this->page->course->id != $SITE->id) {
                     $this->load_course_settings();
                 }
                 break;
@@ -2883,7 +2896,7 @@ class settings_navigation extends navigation_node {
             $admin = false;
         }
 
-        if ($context->contextlevel == CONTEXT_SYSTEM && $admin) {
+        if (($context->contextlevel == CONTEXT_SYSTEM or $context->contextlevel == CONTEXT_TENANT) && $admin) {
             $admin->force_open();
         } else if ($context->contextlevel == CONTEXT_USER && $settings) {
             $settings->force_open();
@@ -3478,8 +3491,12 @@ class settings_navigation extends navigation_node {
      * @param int $courseid The course id of the current course
      * @return navigation_node|false
      */
-    protected function load_user_settings($courseid=SITEID) {
-        global $USER, $FULLME, $CFG;
+    protected function load_user_settings($courseid=0) {
+        global $USER, $FULLME, $CFG, $SITE;
+
+        if (!$courseid) {
+            $courseid = $SITE->id;
+        }
 
         if (isguestuser() || !isloggedin()) {
             return false;
@@ -3553,15 +3570,15 @@ class settings_navigation extends navigation_node {
      * @return navigation_node|false
      */
     protected function generate_user_settings($courseid, $userid, $gstitle='usercurrentsettings') {
-        global $DB, $CFG, $USER, $SITE;
+        global $DB, $CFG, $USER, $SITE, $TENANT;
 
-        if ($courseid != SITEID) {
+        if ($courseid != $SITE->id) {
             if (!empty($this->page->course->id) && $this->page->course->id == $courseid) {
                 $course = $this->page->course;
             } else {
                 list($select, $join) = context_instance_preload_sql('c.id', CONTEXT_COURSE, 'ctx');
-                $sql = "SELECT c.* $select FROM {course} c $join WHERE c.id = :courseid";
-                $course = $DB->get_record_sql($sql, array('courseid' => $courseid), MUST_EXIST);
+                $sql = "SELECT c.* $select FROM {course} c $join WHERE c.id = :courseid AND c.tenantid = :tenantid";
+                $course = $DB->get_record_sql($sql, array('courseid' => $courseid, 'tenantid' => $TENANT->id), MUST_EXIST);
                 context_instance_preload($course);
             }
         } else {
@@ -3569,7 +3586,8 @@ class settings_navigation extends navigation_node {
         }
 
         $coursecontext = get_context_instance(CONTEXT_COURSE, $course->id);   // Course context
-        $systemcontext   = get_system_context();
+        $systemcontext = get_system_context();
+        $topcontext    = context_helper::top_context();
         $currentuser = ($USER->id == $userid);
 
         if ($currentuser) {
@@ -3578,8 +3596,8 @@ class settings_navigation extends navigation_node {
         } else {
 
             list($select, $join) = context_instance_preload_sql('u.id', CONTEXT_USER, 'ctx');
-            $sql = "SELECT u.* $select FROM {user} u $join WHERE u.id = :userid";
-            $user = $DB->get_record_sql($sql, array('userid' => $userid), IGNORE_MISSING);
+            $sql = "SELECT u.* $select FROM {user} u $join WHERE u.id = :userid AND u.tenantid = :tenantid";
+            $user = $DB->get_record_sql($sql, array('userid' => $userid, 'tenantid' => $TENANT->id), IGNORE_MISSING);
             if (!$user) {
                 return false;
             }
@@ -3589,7 +3607,7 @@ class settings_navigation extends navigation_node {
             $usercontext = get_context_instance(CONTEXT_USER, $user->id); // User context
             $canviewuser = has_capability('moodle/user:viewdetails', $usercontext);
 
-            if ($course->id == SITEID) {
+            if ($course->id == $SITE->id) {
                 if ($CFG->forceloginforprofiles && !has_coursecontact_role($user->id) && !$canviewuser) {  // Reduce possibility of "browsing" userbase at site level
                     // Teachers can browse and be browsed at site level. If not forceloginforprofiles, allow access (bug #4366)
                     return false;
@@ -3629,7 +3647,7 @@ class settings_navigation extends navigation_node {
                 $usersetting->add(get_string('userdeleted'), null, self::TYPE_SETTING);
             } else {
                 // We can edit the user so show the user deleted message and link it to the profile
-                if ($course->id == SITEID) {
+                if ($course->id == $SITE->id) {
                     $profileurl = new moodle_url('/user/profile.php', array('id'=>$user->id));
                 } else {
                     $profileurl = new moodle_url('/user/view.php', array('id'=>$user->id, 'course'=>$course->id));
@@ -3646,10 +3664,10 @@ class settings_navigation extends navigation_node {
 
         // Add the profile edit link
         if (isloggedin() && !isguestuser($user) && !is_mnet_remote_user($user)) {
-            if (($currentuser || is_siteadmin($USER) || !is_siteadmin($user)) && has_capability('moodle/user:update', $systemcontext)) {
+            if (($currentuser || is_siteadmin($USER) || !is_siteadmin($user)) && has_capability('moodle/user:update', $topcontext)) {
                 $url = new moodle_url('/user/editadvanced.php', array('id'=>$user->id, 'course'=>$course->id));
                 $usersetting->add(get_string('editmyprofile'), $url, self::TYPE_SETTING);
-            } else if ((has_capability('moodle/user:editprofile', $usercontext) && !is_siteadmin($user)) || ($currentuser && has_capability('moodle/user:editownprofile', $systemcontext))) {
+            } else if ((has_capability('moodle/user:editprofile', $usercontext) && !is_siteadmin($user)) || ($currentuser && has_capability('moodle/user:editownprofile', $topcontext))) {
                 if ($userauthplugin && $userauthplugin->can_edit_profile()) {
                     $url = $userauthplugin->edit_profile_url();
                     if (empty($url)) {
@@ -3661,7 +3679,7 @@ class settings_navigation extends navigation_node {
         }
 
         // Change password link
-        if ($userauthplugin && $currentuser && !session_is_loggedinas() && !isguestuser() && has_capability('moodle/user:changeownpassword', $systemcontext) && $userauthplugin->can_change_password()) {
+        if ($userauthplugin && $currentuser && !session_is_loggedinas() && !isguestuser() && has_capability('moodle/user:changeownpassword', $topcontext) && $userauthplugin->can_change_password()) {
             $passwordchangeurl = $userauthplugin->change_password_url();
             if (empty($passwordchangeurl)) {
                 $passwordchangeurl = new moodle_url('/login/change_password.php', array('id'=>$course->id));
@@ -3693,7 +3711,7 @@ class settings_navigation extends navigation_node {
         }
 
         // Portfolio
-        if ($currentuser && !empty($CFG->enableportfolios) && has_capability('moodle/portfolio:export', $systemcontext)) {
+        if ($currentuser && !empty($CFG->enableportfolios) && has_capability('moodle/portfolio:export', $topcontext)) {
             require_once($CFG->libdir . '/portfoliolib.php');
             if (portfolio_instances(true, false)) {
                 $portfolio = $usersetting->add(get_string('portfolios', 'portfolio'), null, self::TYPE_SETTING);
@@ -3738,7 +3756,7 @@ class settings_navigation extends navigation_node {
         }
 
         // Messaging
-        if (($currentuser && has_capability('moodle/user:editownmessageprofile', $systemcontext)) || (!isguestuser($user) && has_capability('moodle/user:editmessageprofile', $usercontext) && !is_primary_admin($user->id))) {
+        if (($currentuser && has_capability('moodle/user:editownmessageprofile', $topcontext)) || (!isguestuser($user) && has_capability('moodle/user:editmessageprofile', $usercontext) && !is_primary_admin($user->id))) {
             $url = new moodle_url('/message/edit.php', array('id'=>$user->id, 'course'=>$course->id));
             $usersetting->add(get_string('editmymessage', 'message'), $url, self::TYPE_SETTING);
         }
@@ -3884,7 +3902,7 @@ class settings_navigation extends navigation_node {
      * @return navigation_node
      */
     protected function load_front_page_settings($forceopen = false) {
-        global $SITE, $CFG;
+        global $SITE, $CFG, $TENANT;
 
         $course = clone($SITE);
         $coursecontext = get_context_instance(CONTEXT_COURSE, $course->id);   // Course context
@@ -3909,8 +3927,12 @@ class settings_navigation extends navigation_node {
             $frontpage->add($editstring, $url, self::TYPE_SETTING, null, null, new pix_icon('i/edit', ''));
 
             // Add the course settings link
-            $url = new moodle_url('/admin/settings.php', array('section'=>'frontpagesettings'));
-            $frontpage->add(get_string('editsettings'), $url, self::TYPE_SETTING, null, null, new pix_icon('i/settings', ''));
+            if ($TENANT->id) {
+                //TODO: we need to rework the frontpage settings for tenants completely
+            } else {
+                $url = new moodle_url('/admin/settings.php', array('section'=>'frontpagesettings'));
+                $frontpage->add(get_string('editsettings'), $url, self::TYPE_SETTING, null, null, new pix_icon('i/settings', ''));
+            }
         }
 
         // add enrol nodes

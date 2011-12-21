@@ -25,7 +25,7 @@ require(dirname(dirname(dirname(dirname(__FILE__)))) . '/config.php');
 require_once($CFG->dirroot.'/'.$CFG->admin.'/tool/customlang/locallib.php');
 require_once($CFG->dirroot.'/'.$CFG->admin.'/tool/customlang/filter_form.php');
 
-require_login(SITEID, false);
+require_login();
 require_capability('tool/customlang:edit', get_system_context());
 
 $lng                    = required_param('lng', PARAM_LANG);

@@ -29,7 +29,7 @@ define('AJAX_SCRIPT', true);
 require('../config.php');
 require_once($CFG->libdir.'/filelib.php');
 require_once($CFG->libdir.'/adminlib.php');
-$PAGE->set_context(get_system_context());
+
 require_login();
 if (isguestuser()) {
     print_error('noguest');
@@ -41,6 +41,7 @@ $draftid = required_param('itemid', PARAM_INT);
 $filepath = optional_param('filepath', '/', PARAM_PATH);
 
 $user_context = get_context_instance(CONTEXT_USER, $USER->id);
+$PAGE->set_context($user_context);
 
 echo $OUTPUT->header(); // send headers
 

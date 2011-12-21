@@ -17,9 +17,7 @@
     $stradministration = get_string("administration");
     $strcategories = get_string("categories");
 
-    if (! $course = $DB->get_record("course", array("id"=>$id))) {
-        print_error("invalidcourseid", 'error', '', $id);
-    }
+    $course = $DB->get_record("course", array("id"=>$id, 'tenantid'=>$TENANT->id), '*', MUST_EXIST);
     if ($site->id == $course->id) {
         // can not delete frontpage!
         print_error("invalidcourseid", 'error', '', $id);
@@ -31,7 +29,7 @@
         print_error('cannotdeletecourse');
     }
 
-    $category = $DB->get_record("course_categories", array("id"=>$course->category));
+    $category = $DB->get_record("course_categories", array("id"=>$course->category, 'tenantid'=>$TENANT->id), '*', MUST_EXIST);
     $courseshortname = format_string($course->shortname, true, array('context' => get_context_instance(CONTEXT_COURSE, $course->id)));
     $categoryname = format_string($category->name, true, array('context' => get_context_instance(CONTEXT_COURSECAT, $category->id)));
 
@@ -65,7 +63,7 @@
 
     // OK checks done, delete the course now.
 
-    add_to_log(SITEID, "course", "delete", "view.php?id=$course->id", "$course->fullname (ID $course->id)");
+    add_to_log($SITE->id, "course", "delete", "view.php?id=$course->id", "$course->fullname (ID $course->id)");
 
     $strdeletingcourse = get_string("deletingcourse", "", $courseshortname);
 

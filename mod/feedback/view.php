@@ -53,19 +53,19 @@ if (has_capability('mod/feedback:complete', $context)) {
 
 if (isset($CFG->feedback_allowfullanonymous)
             AND $CFG->feedback_allowfullanonymous
-            AND $course->id == SITEID
-            AND (!$courseid OR $courseid == SITEID)
+            AND $course->id == $SITE->id
+            AND (!$courseid OR $courseid == $SITE->id)
             AND $feedback->anonymous == FEEDBACK_ANONYMOUS_YES ) {
     $feedback_complete_cap = true;
 }
 
 //check whether the feedback is located and! started from the mainsite
-if ($course->id == SITEID AND !$courseid) {
-    $courseid = SITEID;
+if ($course->id == $SITE->id AND !$courseid) {
+    $courseid = $SITE->id;
 }
 
 //check whether the feedback is mapped to the given courseid
-if ($course->id == SITEID AND !has_capability('mod/feedback:edititems', $context)) {
+if ($course->id == $SITE->id AND !has_capability('mod/feedback:edititems', $context)) {
     if ($DB->get_records('feedback_sitecourse_map', array('feedbackid'=>$feedback->id))) {
         $params = array('feedbackid'=>$feedback->id, 'courseid'=>$courseid);
         if (!$DB->get_record('feedback_sitecourse_map', $params)) {
@@ -75,13 +75,13 @@ if ($course->id == SITEID AND !has_capability('mod/feedback:edititems', $context
 }
 
 if ($feedback->anonymous != FEEDBACK_ANONYMOUS_YES) {
-    if ($course->id == SITEID) {
+    if ($course->id == $SITE->id) {
         require_login($course->id, true);
     } else {
         require_login($course->id, true, $cm);
     }
 } else {
-    if ($course->id == SITEID) {
+    if ($course->id == $SITE->id) {
         require_course_login($course, true);
     } else {
         require_course_login($course, true, $cm);
@@ -89,7 +89,7 @@ if ($feedback->anonymous != FEEDBACK_ANONYMOUS_YES) {
 }
 
 //check whether the given courseid exists
-if ($courseid AND $courseid != SITEID) {
+if ($courseid AND $courseid != $SITE->id) {
     if ($course2 = $DB->get_record('course', array('id'=>$courseid))) {
         require_course_login($course2); //this overwrites the object $course :-(
         $course = $DB->get_record("course", array("id"=>$cm->course)); // the workaround
@@ -106,7 +106,7 @@ if ($feedback->anonymous == FEEDBACK_ANONYMOUS_NO) {
 $strfeedbacks = get_string("modulenameplural", "feedback");
 $strfeedback  = get_string("modulename", "feedback");
 
-if ($course->id == SITEID) {
+if ($course->id == $SITE->id) {
     $PAGE->set_context($context);
     $PAGE->set_cm($cm, $course); // set's up global $COURSE
     $PAGE->set_pagelayout('incourse');
@@ -119,13 +119,13 @@ echo $OUTPUT->header();
 //ishidden check.
 //feedback in courses
 $cap_viewhiddenactivities = has_capability('moodle/course:viewhiddenactivities', $context);
-if ((empty($cm->visible) and !$cap_viewhiddenactivities) AND $course->id != SITEID) {
+if ((empty($cm->visible) and !$cap_viewhiddenactivities) AND $course->id != $SITE->id) {
     notice(get_string("activityiscurrentlyhidden"));
 }
 
 //ishidden check.
 //feedback on mainsite
-if ((empty($cm->visible) and !$cap_viewhiddenactivities) AND $courseid == SITEID) {
+if ((empty($cm->visible) and !$cap_viewhiddenactivities) AND $courseid == $SITE->id) {
     notice(get_string("activityiscurrentlyhidden"));
 }
 
@@ -228,7 +228,7 @@ if ( (intval($feedback->publish_stats) == 1) AND
 
 //####### mapcourse-start
 if (has_capability('mod/feedback:mapcourse', $context)) {
-    if ($feedback->course == SITEID) {
+    if ($feedback->course == $SITE->id) {
         echo $OUTPUT->box_start('generalbox boxaligncenter boxwidthwide');
         echo '<div class="mdl-align">';
         echo '<form action="mapcourse.php" method="get">';

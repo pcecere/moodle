@@ -34,7 +34,7 @@ $new     = optional_param('new', '', PARAM_FORMAT);
 $delete  = optional_param('delete', 0, PARAM_INT);
 $sure    = optional_param('sure', '', PARAM_ALPHA);
 $contextid = optional_param('contextid', 0, PARAM_INT);
-$usercourseid = optional_param('usercourseid', SITEID, PARAM_INT);  // Extra: used for user context only
+$usercourseid = optional_param('usercourseid', $SITE->id, PARAM_INT);  // Extra: used for user context only
 
 $url = new moodle_url('/repository/manage_instances.php');
 
@@ -61,7 +61,7 @@ if ($contextid !== 0) {
     $url->param('contextid', $contextid);
     $baseurl->param('contextid', $contextid);
 }
-if ($usercourseid != SITEID) {
+if ($usercourseid != $SITE->id) {
     $url->param('usercourseid', $usercourseid);
 }
 

@@ -16,9 +16,7 @@ $id = optional_param('id', 0, PARAM_INT);
 $itemid = 0; //initalise itemid, as all files in category description has item id 0
 
 if ($id) {
-    if (!$category = $DB->get_record('course_categories', array('id' => $id))) {
-        print_error('unknowcategory');
-    }
+    $category = $DB->get_record('course_categories', array('id' => $id, 'tenantid'=>$TENANT->id), '*', MUST_EXIST);
     $PAGE->set_url('/course/editcategory.php', array('id' => $id));
     $categorycontext = get_context_instance(CONTEXT_COURSECAT, $id);
     $PAGE->set_context($categorycontext);
@@ -31,9 +29,7 @@ if ($id) {
     $parent = required_param('parent', PARAM_INT);
     $PAGE->set_url('/course/editcategory.php', array('parent' => $parent));
     if ($parent) {
-        if (!$DB->record_exists('course_categories', array('id' => $parent))) {
-            print_error('unknowcategory');
-        }
+        $DB->record_exists('course_categories', array('id' => $parent, 'tenantid'=>$TENANT->id), '*', MUST_EXIST);
         $context = get_context_instance(CONTEXT_COURSECAT, $parent);
     } else {
         $context = get_system_context();
@@ -93,6 +89,7 @@ if ($mform->is_cancelled()) {
         }
     } else {
         // Create a new category.
+        $newcategory->tenantid = $TENANT->id;
         $newcategory->description = $data->description_editor['text'];
         $newcategory->sortorder = 999;
         $newcategory->id = $DB->insert_record('course_categories', $newcategory);

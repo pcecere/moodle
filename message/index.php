@@ -120,20 +120,20 @@ if ($user1->id != $USER->id && (!empty($user2) && $user2->id != $USER->id) && !h
 
 /// Process any contact maintenance requests there may be
 if ($addcontact and confirm_sesskey()) {
-    add_to_log(SITEID, 'message', 'add contact', 'index.php?user1='.$addcontact.'&amp;user2='.$USER->id, $addcontact);
+    add_to_log($SITE->id, 'message', 'add contact', 'index.php?user1='.$addcontact.'&amp;user2='.$USER->id, $addcontact);
     message_add_contact($addcontact);
     redirect($CFG->wwwroot . '/message/index.php?viewing=contacts&id='.$addcontact);
 }
 if ($removecontact and confirm_sesskey()) {
-    add_to_log(SITEID, 'message', 'remove contact', 'index.php?user1='.$removecontact.'&amp;user2='.$USER->id, $removecontact);
+    add_to_log($SITE->id, 'message', 'remove contact', 'index.php?user1='.$removecontact.'&amp;user2='.$USER->id, $removecontact);
     message_remove_contact($removecontact);
 }
 if ($blockcontact and confirm_sesskey()) {
-    add_to_log(SITEID, 'message', 'block contact', 'index.php?user1='.$blockcontact.'&amp;user2='.$USER->id, $blockcontact);
+    add_to_log($SITE->id, 'message', 'block contact', 'index.php?user1='.$blockcontact.'&amp;user2='.$USER->id, $blockcontact);
     message_block_contact($blockcontact);
 }
 if ($unblockcontact and confirm_sesskey()) {
-    add_to_log(SITEID, 'message', 'unblock contact', 'index.php?user1='.$unblockcontact.'&amp;user2='.$USER->id, $unblockcontact);
+    add_to_log($SITE->id, 'message', 'unblock contact', 'index.php?user1='.$unblockcontact.'&amp;user2='.$USER->id, $unblockcontact);
     message_unblock_contact($unblockcontact);
 }
 
@@ -170,7 +170,7 @@ if ($currentuser && !empty($user2) && has_capability('moodle/site:sendmessage', 
             if (!empty($messageid)) {
                 //including the id of the user sending the message in the logged URL so the URL works for admins
                 //note message ID may be misleading as the message may potentially get a different ID when moved from message to message_read
-                add_to_log(SITEID, 'message', 'write', 'index.php?user='.$user1->id.'&id='.$user2->id.'&history=1#m'.$messageid, $user1->id);
+                add_to_log($SITE->id, 'message', 'write', 'index.php?user='.$user1->id.'&id='.$user2->id.'&history=1#m'.$messageid, $user1->id);
                 redirect($CFG->wwwroot . '/message/index.php?viewing='.$viewing.'&id='.$user2->id);
             }
         }

@@ -238,7 +238,7 @@ if ((!empty($movetosection) or !empty($moveto)) and confirm_sesskey()) {
 
     rebuild_course_cache($section->course);
 
-    if (SITEID == $section->course) {
+    if ($SITE->id == $section->course) {
         redirect($CFG->wwwroot);
     } else {
         redirect("view.php?id=$section->course#section-$sectionreturn");
@@ -264,7 +264,7 @@ if ((!empty($movetosection) or !empty($moveto)) and confirm_sesskey()) {
 
     rebuild_course_cache($cm->course);
 
-    if (SITEID == $cm->course) {
+    if ($SITE->id == $cm->course) {
         redirect($CFG->wwwroot);
     } else {
         redirect("view.php?id=$cm->course#section-$cm->sectionnum");
@@ -283,7 +283,7 @@ if ((!empty($movetosection) or !empty($moveto)) and confirm_sesskey()) {
 
     rebuild_course_cache($cm->course);
 
-    if (SITEID == $cm->course) {
+    if ($SITE->id == $cm->course) {
         redirect($CFG->wwwroot);
     } else {
         redirect("view.php?id=$cm->course#section-$cm->sectionnum");
@@ -306,12 +306,12 @@ if ((!empty($movetosection) or !empty($moveto)) and confirm_sesskey()) {
         print_error('moduledoesnotexist');
     }
 
-    if ($module->visible and ($section->visible or (SITEID == $cm->course))) {
+    if ($module->visible and ($section->visible or ($SITE->id == $cm->course))) {
         set_coursemodule_visible($cm->id, 1);
         rebuild_course_cache($cm->course);
     }
 
-    if (SITEID == $cm->course) {
+    if ($SITE->id == $cm->course) {
         redirect($CFG->wwwroot);
     } else {
         redirect("view.php?id=$cm->course#section-$cm->sectionnum");
@@ -331,7 +331,7 @@ if ((!empty($movetosection) or !empty($moveto)) and confirm_sesskey()) {
 
     rebuild_course_cache($cm->course);
 
-    if (SITEID == $cm->course) {
+    if ($SITE->id == $cm->course) {
         redirect($CFG->wwwroot);
     } else {
         redirect("view.php?id=$cm->course#section-$cm->sectionnum");

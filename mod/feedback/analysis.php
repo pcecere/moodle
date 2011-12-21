@@ -52,14 +52,14 @@ if (!$context = get_context_instance(CONTEXT_MODULE, $cm->id)) {
         print_error('badcontext');
 }
 
-if ($course->id == SITEID) {
+if ($course->id == $SITE->id) {
     require_login($course->id, true);
 } else {
     require_login($course->id, true, $cm);
 }
 
 //check whether the given courseid exists
-if ($courseid AND $courseid != SITEID) {
+if ($courseid AND $courseid != $SITE->id) {
     if ($course2 = $DB->get_record('course', array('id'=>$courseid))) {
         require_course_login($course2); //this overwrites the object $course :-(
         $course = $DB->get_record("course", array("id"=>$cm->course)); // the workaround

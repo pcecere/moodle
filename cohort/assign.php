@@ -31,8 +31,8 @@ $id = required_param('id', PARAM_INT);
 
 require_login();
 
-$cohort = $DB->get_record('cohort', array('id'=>$id), '*', MUST_EXIST);
-$context = get_context_instance_by_id($cohort->contextid, MUST_EXIST);
+$cohort = $DB->get_record('cohort', array('id'=>$id, 'tenantid'=>$TENANT->id), '*', MUST_EXIST);
+$context = context::instance_by_id($cohort->contextid);
 
 require_capability('moodle/cohort:assign', $context);
 

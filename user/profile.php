@@ -45,6 +45,8 @@ $edit   = optional_param('edit', null, PARAM_BOOL);    // Turn editing on and of
 
 $PAGE->set_url('/user/profile.php', array('id'=>$userid));
 
+$topcontext = context_helper::top_context();
+
 if (!empty($CFG->forceloginforprofiles)) {
     require_login();
     if (isguestuser()) {
@@ -56,10 +58,10 @@ if (!empty($CFG->forceloginforprofiles)) {
 }
 
 $userid = $userid ? $userid : $USER->id;       // Owner of the page
-$user = $DB->get_record('user', array('id' => $userid));
+$user = $DB->get_record('user', array('id' => $userid, 'tenantid'=>$TENANT->id), '*', MUST_EXIST);
 
 if ($user->deleted) {
-    $PAGE->set_context(get_context_instance(CONTEXT_SYSTEM));
+    $PAGE->set_context($topcontext);
     echo $OUTPUT->header();
     echo $OUTPUT->heading(get_string('userdeleted'));
     echo $OUTPUT->footer();
@@ -76,7 +78,7 @@ if (!$currentuser &&
 
     // Course managers can be browsed at site level. If not forceloginforprofiles, allow access (bug #4366)
     $struser = get_string('user');
-    $PAGE->set_context(get_context_instance(CONTEXT_SYSTEM));
+    $PAGE->set_context($topcontext);
     $PAGE->set_title("$SITE->shortname: $struser");  // Do not leak the name
     $PAGE->set_heading("$SITE->shortname: $struser");
     $PAGE->set_url('/user/profile.php', array('id'=>$userid));
@@ -93,7 +95,7 @@ if (!$currentpage = my_get_page($userid, MY_PAGE_PUBLIC)) {
 }
 
 if (!$currentpage->userid) {
-    $context = get_context_instance(CONTEXT_SYSTEM);  // A trick so that we even see non-sticky blocks
+    $context = $topcontext;  // A trick so that we even see non-sticky blocks
 }
 
 $PAGE->set_context($context);

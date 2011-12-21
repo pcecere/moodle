@@ -303,7 +303,7 @@ function get_recstatus($tagdata, $tagname){
 * @param string $tagconents The raw contents of the XML element
 */
 function process_group_tag($tagcontents) {
-    global $DB;
+    global $DB, $SITE;
 
     // Get configs
     $truncatecoursecodes    = $this->get_config('truncatecoursecodes');
@@ -434,7 +434,7 @@ function process_group_tag($tagcontents) {
                     $section->summaryformat = FORMAT_HTML;
                     $section->id = $DB->insert_record("course_sections", $section);
 
-                    add_to_log(SITEID, "course", "new", "view.php?id=$course->id", "$course->fullname (ID $course->id)");
+                    add_to_log($SITE->id, "course", "new", "view.php?id=$course->id", "$course->fullname (ID $course->id)");
 
                     $this->log_line("Created course $coursecode in Moodle (Moodle ID is $course->id)");
                 }

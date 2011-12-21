@@ -91,7 +91,7 @@
             }
             // Deleted a role sitewide...
             mark_context_dirty($systemcontext->path);
-            add_to_log(SITEID, 'role', 'delete', 'admin/roles/manage.php', $roles[$roleid]->localname, '', $USER->id);
+            add_to_log($SITE->id, 'role', 'delete', 'admin/roles/manage.php', $roles[$roleid]->localname, '', $USER->id);
             redirect($baseurl);
             break;
 
@@ -174,7 +174,7 @@
 
             // Mark context dirty, log and redirect.
             mark_context_dirty($systemcontext->path);
-            add_to_log(SITEID, 'role', 'reset', 'admin/roles/manage.php?action=reset&roleid=' . $roleid, $roles[$roleid]->localname, '', $USER->id);
+            add_to_log($SITE->id, 'role', 'reset', 'admin/roles/manage.php?action=reset&roleid=' . $roleid, $roles[$roleid]->localname, '', $USER->id);
             redirect($defineurl . '?action=view&roleid=' . $roleid);
             break;
     }

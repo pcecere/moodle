@@ -53,11 +53,16 @@ defined('MOODLE_INTERNAL') || die();
  * @return bool always true
  */
 function xmldb_main_upgrade($oldversion) {
-    global $CFG, $USER, $DB, $OUTPUT;
+    global $CFG, $USER, $DB, $OUTPUT, $SITE;
 
     require_once($CFG->libdir.'/db/upgradelib.php'); // Core Upgrade-related functions
 
     $dbman = $DB->get_manager(); // loads ddl manager and xmldb classes
+
+
+    //TODO: upgrade definitely not possible yet
+    die('This "Multitenant Technological Demo" does not support any kind of upgrades, please make a fresh new install!');
+
 
     ////////////////////////////////////////
     ///upgrade supported only from 1.9.x ///
@@ -1449,7 +1454,7 @@ WHERE gradeitemid IS NOT NULL AND grademax IS NOT NULL");
 
     if ($oldversion < 2009050600) {
     /// Site front page blocks need to be moved due to page name change.
-        $DB->set_field('block_instance', 'pagetype', 'site-index', array('pagetype' => 'course-view', 'pageid' => SITEID));
+        $DB->set_field('block_instance', 'pagetype', 'site-index', array('pagetype' => 'course-view', 'pageid' => $SITE->id));
 
     /// Main savepoint reached
         upgrade_main_savepoint(true, 2009050600);
@@ -1648,7 +1653,7 @@ WHERE gradeitemid IS NOT NULL AND grademax IS NOT NULL");
     /// fill in contextid and subpage, and update pagetypepattern from pagetype and pageid
 
     /// site-index
-        $frontpagecontext = get_context_instance(CONTEXT_COURSE, SITEID);
+        $frontpagecontext = get_context_instance(CONTEXT_COURSE, $SITE->id);
         $DB->execute("UPDATE {block_instances} SET contextid = " . $frontpagecontext->id . ",
                                                    pagetypepattern = 'site-index',
                                                    subpagepattern = NULL
@@ -3604,7 +3609,7 @@ WHERE gradeitemid IS NOT NULL AND grademax IS NOT NULL");
     /// and there is no such hook yet.  Sigh.
 
         if ($mypage = $DB->get_record('my_pages', array('userid'=>NULL, 'private'=>1))) {
-            if (!$DB->record_exists('block_instances', array('pagetypepattern'=>'my-index', 'parentcontextid'=>SITEID, 'subpagepattern'=>$mypage->id))) {
+            if (!$DB->record_exists('block_instances', array('pagetypepattern'=>'my-index', 'parentcontextid'=>$SITE->id, 'subpagepattern'=>$mypage->id))) {
 
                 // No default exist there yet, let's put a few into My Moodle so it's useful.
 
@@ -3935,7 +3940,7 @@ WHERE gradeitemid IS NOT NULL AND grademax IS NOT NULL");
 
     if ($oldversion < 2010061900.06) {
         $sqlempty = $DB->sql_empty();
-        $params = array('siteid'=>SITEID);
+        $params = array('siteid'=>$SITE->id);
 
         // enable manual in all courses
         $sql = "INSERT INTO {enrol} (enrol, status, courseid, sortorder, enrolperiod, expirynotify, expirythreshold, notifyall, roleid, timecreated, timemodified)
@@ -3970,7 +3975,7 @@ WHERE gradeitemid IS NOT NULL AND grademax IS NOT NULL");
 
     if ($oldversion < 2010061900.07) {
         // now migrate old style "interactive" enrol plugins - we know them by looking into course.enrol
-        $params = array('siteid'=>SITEID);
+        $params = array('siteid'=>$SITE->id);
         $enabledplugins = explode(',', $CFG->enrol_plugins_enabled);
         $usedplugins = $DB->get_fieldset_sql("SELECT DISTINCT enrol FROM {course}");
         foreach ($usedplugins as $plugin) {
@@ -3997,7 +4002,7 @@ WHERE gradeitemid IS NOT NULL AND grademax IS NOT NULL");
         // enabled
             $enabledplugins = explode(',', $CFG->enrol_plugins_enabled);
         list($sqlenabled, $params) = $DB->get_in_or_equal($enabledplugins, SQL_PARAMS_NAMED, 'ena');
-        $params['siteid'] = SITEID;
+        $params['siteid'] = $SITE->id;
         $sql = "INSERT INTO {enrol} (enrol, status, courseid, sortorder, enrolperiod, enrolstartdate, enrolenddate, expirynotify, expirythreshold,
                                      notifyall, password, cost, currency, roleid, timecreated, timemodified)
                 SELECT DISTINCT ra.enrol, 0, c.id, 5, c.enrolperiod, c.enrolstartdate, c.enrolenddate, c.expirynotify, c.expirythreshold,
@@ -4015,7 +4020,7 @@ WHERE gradeitemid IS NOT NULL AND grademax IS NOT NULL");
         $DB->execute($sql, $params);
 
         // disabled
-        $params = array('siteid' => SITEID);
+        $params = array('siteid' => $SITE->id);
         $sql = "INSERT INTO {enrol} (enrol, status, courseid, sortorder, enrolperiod, enrolstartdate, enrolenddate, expirynotify, expirythreshold,
                                      notifyall, password, cost, currency, roleid, timecreated, timemodified)
                 SELECT DISTINCT ra.enrol, 1, c.id, 5, c.enrolperiod, c.enrolstartdate, c.enrolenddate, c.expirynotify, c.expirythreshold,
@@ -4047,7 +4052,7 @@ WHERE gradeitemid IS NOT NULL AND grademax IS NOT NULL");
                   JOIN {role_assignments} ra ON (ra.contextid = ctx.id AND ra.enrol <> '$sqlempty')
              LEFT JOIN {enrol} e ON (e.courseid = c.id AND e.enrol = ra.enrol)
                  WHERE c.id <> :siteid AND e.id IS NULL";
-        $params = array('siteid'=>SITEID);
+        $params = array('siteid'=>$SITE->id);
         $rs = $DB->get_recordset_sql($sql, $params);
         foreach ($rs as $enrol) {
             upgrade_set_timeout();

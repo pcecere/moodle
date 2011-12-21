@@ -189,7 +189,7 @@ class hub_selector_form extends moodleform {
 class site_registration_form extends moodleform {
 
     public function definition() {
-        global $CFG, $DB;
+        global $CFG, $DB, $SITE;
 
         $strrequired = get_string('required');
         $mform = & $this->_form;
@@ -203,7 +203,7 @@ class site_registration_form extends moodleform {
         $cleanhuburl = clean_param($huburl, PARAM_ALPHANUMEXT);
         $sitename = get_config('hub', 'site_name_' . $cleanhuburl);
         if ($sitename === false) {
-            $sitename = format_string($site->fullname, true, array('context' => get_context_instance(CONTEXT_COURSE, SITEID)));
+            $sitename = format_string($site->fullname, true, array('context' => get_context_instance(CONTEXT_COURSE, $SITE->id)));
         }
         $sitedescription = get_config('hub', 'site_description_' . $cleanhuburl);
         if ($sitedescription === false) {

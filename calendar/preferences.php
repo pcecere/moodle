@@ -14,7 +14,7 @@ $PAGE->set_pagelayout('standard');
 
 require_login($course);
 
-if ($courseid == SITEID) {
+if ($courseid == $SITE->id) {
     $viewurl = new moodle_url('/calendar/view.php', array('view' => 'month'));
 } else {
     $viewurl = new moodle_url('/calendar/view.php', array('view' => 'month', 'course' => $courseid));

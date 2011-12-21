@@ -96,7 +96,7 @@ if ($can_subscribe) {
     $generaltable->align[] = 'center';
 }
 
-if ($show_rss = (($can_subscribe || $course->id == SITEID) &&
+if ($show_rss = (($can_subscribe || $course->id == $SITE->id) &&
                  isset($CFG->enablerssfeeds) && isset($CFG->forum_enablerssfeeds) &&
                  $CFG->enablerssfeeds && $CFG->forum_enablerssfeeds)) {
     $generaltable->head[] = $strrss;
@@ -141,7 +141,7 @@ foreach ($modinfo->instances['forum'] as $forumid=>$cm) {
     if ($forum->type == 'news' or $forum->type == 'social') {
         $generalforums[$forum->id] = $forum;
 
-    } else if ($course->id == SITEID or empty($cm->sectionnum)) {
+    } else if ($course->id == $SITE->id or empty($cm->sectionnum)) {
         $generalforums[$forum->id] = $forum;
 
     } else {
@@ -260,7 +260,7 @@ if ($generalforums) {
                     $tooltiptext = get_string('rsssubscriberssposts', 'forum');
                 }
 
-                if (!isloggedin() && $course->id == SITEID) {
+                if (!isloggedin() && $course->id == $SITE->id) {
                     $userid = guest_user()->id;
                 } else {
                     $userid = $USER->id;
@@ -295,7 +295,7 @@ if ($can_subscribe) {
     $learningtable->align[] = 'center';
 }
 
-if ($show_rss = (($can_subscribe || $course->id == SITEID) &&
+if ($show_rss = (($can_subscribe || $course->id == $SITE->id) &&
                  isset($CFG->enablerssfeeds) && isset($CFG->forum_enablerssfeeds) &&
                  $CFG->enablerssfeeds && $CFG->forum_enablerssfeeds)) {
     $learningtable->head[] = $strrss;
@@ -304,8 +304,8 @@ if ($show_rss = (($can_subscribe || $course->id == SITEID) &&
 
 /// Now let's process the learning forums
 
-if ($course->id != SITEID) {    // Only real courses have learning forums
-    // 'format_.'$course->format only applicable when not SITEID (format_site is not a format)
+if ($course->id != $SITE->id) {    // Only real courses have learning forums
+    // 'format_.'$course->format only applicable when not $SITE->id (format_site is not a format)
     $strsectionname  = get_string('sectionname', 'format_'.$course->format);
     // Add extra field for section number, at the front
     array_unshift($learningtable->head, $strsectionname);

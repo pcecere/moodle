@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<XMLDB PATH="auth/tenant/db" VERSION="20111214" COMMENT="XMLDB file for auth/tenant"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:noNamespaceSchemaLocation="../../../lib/xmldb/xmldb.xsd"
+        >
+    <TABLES>
+        <TABLE NAME="auth_tenant_cohorts" COMMENT="List of cohorts to be synchronised with tenants" NEXT="auth_tenant_users">
+            <FIELDS>
+                <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" UNSIGNED="true" SEQUENCE="true" NEXT="tenantid"/>
+                <FIELD NAME="tenantid" TYPE="int" LENGTH="10" NOTNULL="true" UNSIGNED="true" DEFAULT="0" SEQUENCE="false" PREVIOUS="id" NEXT="cohortid"/>
+                <FIELD NAME="cohortid" TYPE="int" LENGTH="10" NOTNULL="true" UNSIGNED="true" DEFAULT="0" SEQUENCE="false" PREVIOUS="tenantid" NEXT="roleid"/>
+                <FIELD NAME="roleid" TYPE="int" LENGTH="10" NOTNULL="false" UNSIGNED="true" SEQUENCE="false" PREVIOUS="cohortid" NEXT="timecreated"/>
+                <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" UNSIGNED="true" SEQUENCE="false" PREVIOUS="roleid"/>
+            </FIELDS>
+            <KEYS>
+                <KEY NAME="primary" TYPE="primary" FIELDS="id" NEXT="tenantid"/>
+                <KEY NAME="tenantid" TYPE="foreign" FIELDS="tenantid" REFTABLE="tenant" REFFIELDS="id" PREVIOUS="primary" NEXT="cohortid"/>
+                <KEY NAME="cohortid" TYPE="foreign" FIELDS="cohortid" REFTABLE="cohort" REFFIELDS="id" PREVIOUS="tenantid" NEXT="roleid"/>
+                <KEY NAME="roleid" TYPE="foreign" FIELDS="roleid" REFTABLE="role" REFFIELDS="id" PREVIOUS="cohortid"/>
+            </KEYS>
+        </TABLE>
+        <TABLE NAME="auth_tenant_users" COMMENT="Synchronised users from main site" PREVIOUS="auth_tenant_cohorts" NEXT="auth_tenant_sso">
+            <FIELDS>
+                <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" UNSIGNED="true" SEQUENCE="true" NEXT="tenantid"/>
+                <FIELD NAME="tenantid" TYPE="int" LENGTH="10" NOTNULL="true" UNSIGNED="true" DEFAULT="0" SEQUENCE="false" PREVIOUS="id" NEXT="userid"/>
+                <FIELD NAME="userid" TYPE="int" LENGTH="10" NOTNULL="true" UNSIGNED="true" SEQUENCE="false" PREVIOUS="tenantid" NEXT="tenantuserid"/>
+                <FIELD NAME="tenantuserid" TYPE="int" LENGTH="10" NOTNULL="false" UNSIGNED="true" SEQUENCE="false" PREVIOUS="userid" NEXT="timecreated"/>
+                <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" UNSIGNED="true" SEQUENCE="false" PREVIOUS="tenantuserid"/>
+            </FIELDS>
+            <KEYS>
+                <KEY NAME="primary" TYPE="primary" FIELDS="id" NEXT="tenantid"/>
+                <KEY NAME="tenantid" TYPE="foreign" FIELDS="tenantid" REFTABLE="tenant" REFFIELDS="id" PREVIOUS="primary" NEXT="userid"/>
+                <KEY NAME="userid" TYPE="foreign" FIELDS="userid" REFTABLE="user" REFFIELDS="id" PREVIOUS="tenantid" NEXT="tenantuserid"/>
+                <KEY NAME="tenantuserid" TYPE="foreign" FIELDS="tenantuserid" REFTABLE="user" REFFIELDS="id" PREVIOUS="userid"/>
+            </KEYS>
+        </TABLE>
+        <TABLE NAME="auth_tenant_sso" COMMENT="SSO table" PREVIOUS="auth_tenant_users">
+            <FIELDS>
+                <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" UNSIGNED="true" SEQUENCE="true" NEXT="tuid"/>
+                <FIELD NAME="tuid" TYPE="int" LENGTH="10" NOTNULL="true" UNSIGNED="true" SEQUENCE="false" PREVIOUS="id" NEXT="mainsid"/>
+                <FIELD NAME="mainsid" TYPE="char" LENGTH="128" NOTNULL="true" UNSIGNED="true" SEQUENCE="false" PREVIOUS="tuid" NEXT="tenantsid"/>
+                <FIELD NAME="tenantsid" TYPE="char" LENGTH="128" NOTNULL="false" UNSIGNED="true" SEQUENCE="false" PREVIOUS="mainsid" NEXT="token"/>
+                <FIELD NAME="token" TYPE="char" LENGTH="40" NOTNULL="false" SEQUENCE="false" PREVIOUS="tenantsid" NEXT="timecreated"/>
+                <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" UNSIGNED="true" SEQUENCE="false" PREVIOUS="token"/>
+            </FIELDS>
+            <KEYS>
+                <KEY NAME="primary" TYPE="primary" FIELDS="id" NEXT="tuid"/>
+                <KEY NAME="tuid" TYPE="foreign" FIELDS="tuid" REFTABLE="auth_tenant_users" REFFIELDS="id" PREVIOUS="primary"/>
+            </KEYS>
+        </TABLE>
+    </TABLES>
+</XMLDB>

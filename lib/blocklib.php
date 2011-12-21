@@ -498,7 +498,7 @@ class block_manager {
      *      false - don't load hidden blocks.
      */
     public function load_blocks($includeinvisible = null) {
-        global $DB, $CFG;
+        global $DB, $CFG, $TENANT;
 
         if (!is_null($this->birecordsbyregion)) {
             // Already done.
@@ -558,6 +558,7 @@ class block_manager {
             'contextid1' => $context->id,
             'contextid2' => $context->id,
             'pagetype' => $this->page->pagetype,
+            'tenantid' => $this->page->context->tenantid,
         );
         if ($this->page->subpage === '') {
             $params['subpage1'] = $DB->sql_empty();
@@ -589,6 +590,7 @@ class block_manager {
 
                 WHERE
                 $contexttest
+                AND ctx.tenantid = :tenantid
                 AND bi.pagetypepattern $pagetypepatterntest
                 AND (bi.subpagepattern IS NULL OR bi.subpagepattern = :subpage2)
                 $visiblecheck
@@ -996,7 +998,7 @@ class block_manager {
      * @return an array in the format for {@link block_contents::$controls}
      */
     public function edit_controls($block) {
-        global $CFG;
+        global $CFG, $SITE;
 
         if (!isset($CFG->undeletableblocktypes) || (!is_array($CFG->undeletableblocktypes) && !is_string($CFG->undeletableblocktypes))) {
             $undeletableblocktypes = array('navigation','settings');
@@ -1024,7 +1026,7 @@ class block_manager {
         if ($this->page->user_can_edit_blocks() && $block->user_can_edit() && $block->user_can_addto($this->page)) {
             if (!in_array($block->instance->blockname, $undeletableblocktypes)
                     || !in_array($block->instance->pagetypepattern, array('*', 'site-index'))
-                    || $block->instance->parentcontextid != SITEID) {
+                    || $block->instance->parentcontextid != $SITE->id) {
                 // Delete icon.
                 $controls[] = array('url' => $actionurl . '&bui_deleteid=' . $block->instance->id,
                         'icon' => 't/delete', 'caption' => get_string('delete'));
@@ -1164,7 +1166,7 @@ class block_manager {
      *      return if the editing form was displayed. False otherwise.
      */
     public function process_url_edit() {
-        global $CFG, $DB, $PAGE, $OUTPUT;
+        global $CFG, $DB, $PAGE, $OUTPUT, $SITE;
 
         $blockid = optional_param('bui_editid', null, PARAM_INTEGER);
         if (!$blockid) {
@@ -1228,7 +1230,7 @@ class block_manager {
             }
 
             $systemcontext = get_context_instance(CONTEXT_SYSTEM);
-            $frontpagecontext = get_context_instance(CONTEXT_COURSE, SITEID);
+            $frontpagecontext = get_context_instance(CONTEXT_COURSE, $SITE->id);
             $parentcontext = get_context_instance_by_id($data->bui_parentcontextid);
 
             // Updating stickiness and contexts.  See MDL-21375 for details.
@@ -1269,7 +1271,7 @@ class block_manager {
 
             $bits = explode('-', $bi->pagetypepattern);
             // hacks for some contexts
-            if (($parentcontext->contextlevel == CONTEXT_COURSE) && ($parentcontext->instanceid != SITEID)) {
+            if (($parentcontext->contextlevel == CONTEXT_COURSE) && ($parentcontext->instanceid != $SITE->id)) {
                 // For course context
                 // is page type pattern is mod-*, change showinsubcontext to 1
                 if ($bits[0] == 'mod' || $bi->pagetypepattern == '*') {
@@ -2073,12 +2075,12 @@ function blocks_get_default_site_course_blocks() {
  * @param object $course a course object.
  */
 function blocks_add_default_course_blocks($course) {
-    global $CFG;
+    global $CFG, $SITE;
 
     if (!empty($CFG->defaultblocks_override)) {
         $blocknames = blocks_parse_default_blocks_list($CFG->defaultblocks_override);
 
-    } else if ($course->id == SITEID) {
+    } else if ($course->id == $SITE->id) {
         $blocknames = blocks_get_default_site_course_blocks();
 
     } else {
@@ -2107,7 +2109,7 @@ function blocks_add_default_course_blocks($course) {
         }
     }
 
-    if ($course->id == SITEID) {
+    if ($course->id == $SITE->id) {
         $pagetypepattern = 'site-index';
     } else {
         $pagetypepattern = 'course-view-*';
@@ -2136,3 +2138,4 @@ function blocks_add_default_system_blocks() {
 
     $page->blocks->add_blocks(array(BLOCK_POS_RIGHT => array('private_files', 'online_users'), 'content' => array('course_overview')), 'my-index', $subpagepattern, false);
 }
+

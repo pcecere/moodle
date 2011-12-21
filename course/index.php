@@ -38,10 +38,10 @@ $movedown = optional_param('movedown',0,PARAM_INT);
 
 $site = get_site();
 
-$systemcontext = get_context_instance(CONTEXT_SYSTEM);
+$topcontext = context_helper::top_context();
 
 $PAGE->set_url('/course/index.php');
-$PAGE->set_context($systemcontext);
+$PAGE->set_context($topcontext);
 $PAGE->set_pagelayout('admin');
 
 if (can_edit_in_category()) {
@@ -101,13 +101,13 @@ if (!$adminediting) {
     }
 
     echo $OUTPUT->container_start('buttons');
-    if (has_capability('moodle/course:create', $systemcontext)) {
+    if (has_capability('moodle/course:create', $topcontext)) {
     /// Print link to create a new course
     /// Get the 1st available category
         $options = array('category' => $CFG->defaultrequestcategory);
         echo $OUTPUT->single_button(new moodle_url('edit.php', $options), get_string('addnewcourse'), 'get');
     }
-    print_course_request_buttons($systemcontext);
+    print_course_request_buttons($topcontext);
     echo $OUTPUT->container_end();
     echo $OUTPUT->footer();
     exit;
@@ -264,7 +264,7 @@ print_category_edit(NULL, $displaylist, $parentlist);
 echo '</table>';
 
 echo '<div class="buttons">';
-if (has_capability('moodle/course:create', $systemcontext)) {
+if (has_capability('moodle/course:create', $topcontext)) {
     // print create course link to first category
     $options = array('category' => $CFG->defaultrequestcategory);
     $options['returnto'] = 'topcat';
@@ -272,12 +272,12 @@ if (has_capability('moodle/course:create', $systemcontext)) {
 }
 
 // Print button for creating new categories
-if (has_capability('moodle/category:manage', $systemcontext)) {
+if (has_capability('moodle/category:manage', $topcontext)) {
     $options = array('parent'=>0);
     echo $OUTPUT->single_button(new moodle_url('editcategory.php', $options), get_string('addnewcategory'), 'get');
 }
 
-print_course_request_buttons($systemcontext);
+print_course_request_buttons($topcontext);
 echo '</div>';
 
 echo $OUTPUT->footer();

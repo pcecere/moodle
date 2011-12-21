@@ -4,12 +4,14 @@ require_once($CFG->dirroot.'/lib/rsslib.php');
 require_once($CFG->dirroot .'/blog/lib.php');
 
 function blog_rss_get_url($contextid, $userid, $filtertype, $filterselect=0, $tagid=0) {
+    global $SITE;
+
     $componentname = 'blog';
 
     $additionalargs = null;
     switch ($filtertype) {
         case 'site':
-            $additionalargs = 'site/'.SITEID;
+            $additionalargs = 'site/'.$SITE->id;
         break;
         case 'course':
             $additionalargs = 'course/'.$filterselect;
@@ -67,12 +69,14 @@ function blog_rss_add_http_header($context, $title, $filtertype, $filterselect=0
  * @return array array containing the id of the user/course/group, the relevant context and the filter type (site/user/course/group)
  */
 function blog_rss_get_params($filters) {
+    global $SITE;
+
     $thingid = $rsscontext = $filtertype = null;
 
     $sitecontext = get_context_instance(CONTEXT_SYSTEM);
 
     if (!$filters) {
-        $thingid = SITEID;
+        $thingid = $SITE->id;
         $rsscontext = $sitecontext;
         $filtertype = 'site';
     } else if (array_key_exists('course', $filters)) {
@@ -189,7 +193,7 @@ function blog_rss_get_feed($context, $args) {
             $info = format_string($info, true, array('context' => get_context_instance(CONTEXT_COURSE, $id)));
             break;
         case 'site':
-            $info = format_string($SITE->fullname, true, array('context' => get_context_instance(CONTEXT_COURSE, SITEID)));
+            $info = format_string($SITE->fullname, true, array('context' => get_context_instance(CONTEXT_COURSE, $SITE->id)));
             break;
         case 'group':
             $group = groups_get_group($id);

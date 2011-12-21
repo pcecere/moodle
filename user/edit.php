@@ -33,16 +33,16 @@ require_once($CFG->dirroot.'/user/profile/lib.php');
 $PAGE->https_required();
 
 $userid = optional_param('id', $USER->id, PARAM_INT);    // user id
-$course = optional_param('course', SITEID, PARAM_INT);   // course id (defaults to Site)
+$course = optional_param('course', $SITE->id, PARAM_INT);   // course id (defaults to Site)
 $cancelemailchange = optional_param('cancelemailchange', 0, PARAM_INT);   // course id (defaults to Site)
 
 $PAGE->set_url('/user/edit.php', array('course'=>$course, 'id'=>$userid));
 
-if (!$course = $DB->get_record('course', array('id'=>$course))) {
-    print_error('invalidcourseid');
-}
+$topcontext = context_helper::top_context();
 
-if ($course->id != SITEID) {
+$course = $DB->get_record('course', array('id'=>$course, 'tenantid'=>$TENANT->id), '*', MUST_EXIST);
+
+if ($course->id != $SITE->id) {
     require_login($course);
 } else if (!isloggedin()) {
     if (empty($SESSION->wantsurl)) {
@@ -50,7 +50,7 @@ if ($course->id != SITEID) {
     }
     redirect(get_login_url());
 } else {
-    $PAGE->set_context(get_system_context());
+    $PAGE->set_context($topcontext);
     $PAGE->set_pagelayout('standard');
 }
 
@@ -60,9 +60,7 @@ if (isguestuser()) {
 }
 
 // The user profile we are editing
-if (!$user = $DB->get_record('user', array('id'=>$userid))) {
-    print_error('invaliduserid');
-}
+$user = $DB->get_record('user', array('id'=>$userid, 'tenantid'=>$TENANT->id), '*', MUST_EXIST);
 
 // Guest can not be edited
 if (isguestuser($user)) {
@@ -96,18 +94,17 @@ if ($editurl = $userauth->edit_profile_url()) {
     redirect($editurl);
 }
 
-if ($course->id == SITEID) {
-    $coursecontext = get_context_instance(CONTEXT_SYSTEM);   // SYSTEM context
+if ($course->id == $SITE->id) {
+    $coursecontext = $topcontext;   // SYSTEM context
 } else {
-    $coursecontext = get_context_instance(CONTEXT_COURSE, $course->id);   // Course context
+    $coursecontext = context_course::instance($course->id);   // Course context
 }
-$systemcontext   = get_context_instance(CONTEXT_SYSTEM);
-$personalcontext = get_context_instance(CONTEXT_USER, $user->id);
+$personalcontext = context_user::instance($user->id);
 
 // check access control
 if ($user->id == $USER->id) {
     //editing own profile - require_login() MUST NOT be used here, it would result in infinite loop!
-    if (!has_capability('moodle/user:editownprofile', $systemcontext)) {
+    if (!has_capability('moodle/user:editownprofile', $topcontext)) {
         print_error('cannotedityourprofile');
     }
 
@@ -170,7 +167,7 @@ if ($usernew = $userform->get_data()) {
 
     if ($CFG->emailchangeconfirmation) {
         // Handle change of email carefully for non-trusted users
-        if (isset($usernew->email) and $user->email != $usernew->email && !has_capability('moodle/user:update', $systemcontext)) {
+        if (isset($usernew->email) and $user->email != $usernew->email && !has_capability('moodle/user:update', $topcontext)) {
             $a = new stdClass();
             $a->newemail = $usernew->preference_newemail = $usernew->email;
             $usernew->preference_newemailkey = random_string(20);
@@ -230,7 +227,7 @@ if ($usernew = $userform->get_data()) {
 
         $a = new stdClass();
         $a->url = $CFG->wwwroot . '/user/emailupdate.php?key=' . $usernew->preference_newemailkey . '&id=' . $user->id;
-        $a->site = format_string($SITE->fullname, true, array('context' => get_context_instance(CONTEXT_COURSE, SITEID)));
+        $a->site = format_string($SITE->fullname, true, array('context' => context_course::instance($SITE->id)));
         $a->fullname = fullname($user, true);
 
         $emailupdatemessage = get_string('emailupdatemessage', 'auth', $a);

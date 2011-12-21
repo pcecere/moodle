@@ -251,7 +251,7 @@ class repository_type {
                     // for it
                     $instanceoptions['name'] = $this->_options['pluginname'];
                 }
-                repository::static_function($this->_typename, 'create', $this->_typename, 0, get_system_context(), $instanceoptions);
+                repository::static_function($this->_typename, 'create', $this->_typename, 0, context_helper::top_context(), $instanceoptions);
             }
             //run plugin_init function
             if (!repository::static_function($this->_typename, 'plugin_init')) {
@@ -715,7 +715,7 @@ abstract class repository {
     public static function get_editable_types($context = null) {
 
         if (empty($context)) {
-            $context = get_system_context();
+            $context = context_helper::top_context();
         }
 
         $types= repository::get_types(true);
@@ -865,7 +865,7 @@ abstract class repository {
                     if (!empty($current_context)) {
                         $capability = has_capability('repository/'.$record->repositorytype.':view', $current_context);
                     } else {
-                        $capability = has_capability('repository/'.$record->repositorytype.':view', get_system_context());
+                        $capability = has_capability('repository/'.$record->repositorytype.':view', context_helper::top_context());
                     }
                     if ($record->repositorytype == 'coursefiles') {
                         // coursefiles plugin needs managefiles permission
@@ -1208,7 +1208,7 @@ abstract class repository {
         //want to display only visible instances, but for every type types. The repository::get_instances()
         //third parameter displays only visible type.
         $params = array();
-        $params['context'] = array($context, get_system_context());
+        $params['context'] = array($context, context_helper::top_context());
         $params['currentcontext'] = $context;
         $params['onlyvisible'] = !$admin;
         $params['type']        = $typename;
@@ -2119,7 +2119,7 @@ function initialise_filepicker($args) {
     $user_context = get_context_instance(CONTEXT_USER, $USER->id);
 
     list($context, $course, $cm) = get_context_info_array($context->id);
-    $contexts = array($user_context, get_system_context());
+    $contexts = array($user_context, context_helper::top_context());
     if (!empty($course)) {
         // adding course context
         $contexts[] = get_context_instance(CONTEXT_COURSE, $course->id);

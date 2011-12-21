@@ -160,7 +160,7 @@ if (!empty($user)) {
             $token->timecreated = time();
             $token->externalserviceid = $service_record->id;
             $tokenid = $DB->insert_record('external_tokens', $token);
-            add_to_log(SITEID, 'webservice', get_string('createtokenforuserauto', 'webservice'), '' , 'User ID: ' . $user->id);
+            add_to_log($SITE->id, 'webservice', get_string('createtokenforuserauto', 'webservice'), '' , 'User ID: ' . $user->id);
             $token->id = $tokenid;
         } else {
             throw new moodle_exception('cannotcreatetoken', 'webservice', '', $serviceshortname);
@@ -170,7 +170,7 @@ if (!empty($user)) {
     // log token access
     $DB->set_field('external_tokens', 'lastaccess', time(), array('id'=>$token->id));
 
-    add_to_log(SITEID, 'webservice', 'user request webservice token', '' , 'User ID: ' . $user->id);
+    add_to_log($SITE->id, 'webservice', 'user request webservice token', '' , 'User ID: ' . $user->id);
 
     $usertoken = new stdClass;
     $usertoken->token = $token->token;

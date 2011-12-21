@@ -10,13 +10,13 @@ require_once('../config.php');
 require_once('lib.php');
 
 /// retrieve parameters
-$courseid     = optional_param('course', SITEID, PARAM_INT);
+$courseid     = optional_param('course', $SITE->id, PARAM_INT);
 $userid       = optional_param('user', 0, PARAM_INT);
 $filtertype   = optional_param('filtertype', '', PARAM_ALPHA);
 $filterselect = optional_param('filterselect', 0, PARAM_INT);
 
 $url = new moodle_url('/notes/index.php');
-if ($courseid != SITEID) {
+if ($courseid != $SITE->id) {
     $url->param('course', $courseid);
 }
 if ($userid !== 0) {
@@ -30,12 +30,12 @@ switch($filtertype) {
         $courseid = $filterselect;
         break;
     case 'site':
-        $courseid = SITEID;
+        $courseid = $SITE->id;
         break;
 }
 
 if (empty($courseid)) {
-    $courseid = SITEID;
+    $courseid = $SITE->id;
 }
 
 /// locate course information
@@ -68,7 +68,7 @@ if (empty($CFG->enablenotes)) {
 }
 
 /// output HTML
-if ($course->id == SITEID) {
+if ($course->id == $SITE->id) {
     $coursecontext = get_context_instance(CONTEXT_SYSTEM);   // SYSTEM context
 } else {
     $coursecontext = get_context_instance(CONTEXT_COURSE, $course->id);   // Course context
@@ -104,7 +104,7 @@ $straddnewnote = get_string('addnewnote', 'notes');
 
 echo $OUTPUT->box_start();
 
-if ($courseid != SITEID) {
+if ($courseid != $SITE->id) {
     //echo '<a href="#sitenotes">' . $strsitenotes . '</a> | <a href="#coursenotes">' . $strcoursenotes . '</a> | <a href="#personalnotes">' . $strpersonalnotes . '</a>';
     $context = get_context_instance(CONTEXT_COURSE, $courseid);
     $addid = has_capability('moodle/notes:manage', $context) ? $courseid : 0;

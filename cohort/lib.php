@@ -111,14 +111,14 @@ function cohort_delete_category($category) {
 
     $oldcontext = get_context_instance(CONTEXT_COURSECAT, $category->id, MUST_EXIST);
 
-    if ($category->parent and $parent = $DB->get_record('course_categories', array('id'=>$category->parent))) {
+    if ($category->parent and $parent = $DB->get_record('course_categories', array('id'=>$category->parent, 'tenantid'=>$category->tenantid))) {
         $parentcontext = get_context_instance(CONTEXT_COURSECAT, $parent->id, MUST_EXIST);
         $sql = "UPDATE {cohort} SET contextid = :newcontext WHERE contextid = :oldcontext";
         $params = array('oldcontext'=>$oldcontext->id, 'newcontext'=>$parentcontext->id);
     } else {
-        $syscontext = get_context_instance(CONTEXT_SYSTEM);
+        $topcontext = context_helper::top_context();
         $sql = "UPDATE {cohort} SET contextid = :newcontext WHERE contextid = :oldcontext";
-        $params = array('oldcontext'=>$oldcontext->id, 'newcontext'=>$syscontext->id);
+        $params = array('oldcontext'=>$oldcontext->id, 'newcontext'=>$topcontext->id);
     }
 
     $DB->execute($sql, $params);
@@ -172,11 +172,12 @@ function cohort_get_visible_list($course) {
               FROM {cohort} c
               JOIN {cohort_members} cm ON cm.cohortid = c.id
               JOIN ($esql) u ON u.id = cm.userid
-             WHERE c.contextid $parentsql
+             WHERE c.contextid $parentsql AND c.tenantid = :tenantid
           GROUP BY c.id, c.name, c.idnumber
             HAVING COUNT(u.id) > 0
           ORDER BY c.name, c.idnumber";
     $params['ctx'] = $context->id;
+    $params['tenantid'] = $course->tenantid;
 
     $cohorts = $DB->get_records_sql($sql, $params);
 
@@ -202,8 +203,6 @@ function cohort_get_visible_list($course) {
  */
 function cohort_get_cohorts($contextid, $page = 0, $perpage = 25, $search = '') {
     global $DB;
-
-    $cohorts = array();
 
     // Add some additional sensible conditions
     $tests = array('contextid = ?');
@@ -252,17 +251,18 @@ class cohort_candidate_selector extends user_selector_base {
      * @return array
      */
     public function find_users($search) {
-        global $DB;
+        global $DB, $TENANT;
         //by default wherecondition retrieves all users except the deleted, not confirmed and guest
         list($wherecondition, $params) = $this->search_sql($search, 'u');
         $params['cohortid'] = $this->cohortid;
+        $params['tenantid'] = $TENANT->id;
 
         $fields      = 'SELECT ' . $this->required_fields_sql('u');
         $countfields = 'SELECT COUNT(1)';
 
         $sql = " FROM {user} u
             LEFT JOIN {cohort_members} cm ON (cm.userid = u.id AND cm.cohortid = :cohortid)
-                WHERE cm.id IS NULL AND $wherecondition";
+                WHERE cm.id IS NULL AND $wherecondition AND u.tenantid = :tenantid";
 
         $order = ' ORDER BY u.lastname ASC, u.firstname ASC';
 
@@ -314,10 +314,11 @@ class cohort_existing_selector extends user_selector_base {
      * @return array
      */
     public function find_users($search) {
-        global $DB;
+        global $DB, $TENANT;
         //by default wherecondition retrieves all users except the deleted, not confirmed and guest
         list($wherecondition, $params) = $this->search_sql($search, 'u');
         $params['cohortid'] = $this->cohortid;
+        $params['tenantid'] = $TENANT->id;
 
         $fields      = 'SELECT ' . $this->required_fields_sql('u');
         $countfields = 'SELECT COUNT(1)';

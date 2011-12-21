@@ -42,7 +42,7 @@ if ($courseid) {
     if (!($course = $DB->get_record('course', array('id'=>$courseid)))) {
         $courseid = 0;
     }
-    if ($courseid == SITEID) $courseid = 0;
+    if ($courseid == $SITE->id) $courseid = 0;
 }
 
 if ($courseid) {

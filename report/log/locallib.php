@@ -106,7 +106,7 @@ function report_log_print_mnet_selector_form($hostid, $course, $selecteduser=0, 
     $limitnum  = empty($showusers) ? COURSE_MAX_USERS_PER_DROPDOWN + 1 : '';
 
     // If looking at a different host, we're interested in all our site users
-    if ($hostid == $CFG->mnet_localhost_id && $course->id != SITEID) {
+    if ($hostid == $CFG->mnet_localhost_id && $course->id != $SITE->id) {
         $courseusers = get_enrolled_users($context, '', $selectedgroup, 'u.id, u.firstname, u.lastname, u.idnumber', 'lastname ASC, firstname ASC', $limitfrom, $limitnum);
     } else {
         // this may be a lot of users :-(
@@ -156,7 +156,7 @@ function report_log_print_mnet_selector_form($hostid, $course, $selecteduser=0, 
             if (has_capability('report/log:view', $sitecontext) && $showcourses) {
                 if ($ccc = $DB->get_records("course", null, "fullname","id,fullname,category")) {
                     foreach ($ccc as $cc) {
-                        if ($cc->id == SITEID) {
+                        if ($cc->id == $SITE->id) {
                             $sites["$hostid/$cc->id"]   = format_string($cc->fullname).' ('.get_string('site').')';
                         } else {
                             $courses["$hostid/$cc->id"] = format_string($cc->fullname);
@@ -330,7 +330,7 @@ function report_log_print_mnet_selector_form($hostid, $course, $selecteduser=0, 
 function report_log_print_selector_form($course, $selecteduser=0, $selecteddate='today',
                                  $modname="", $modid=0, $modaction='', $selectedgroup=-1, $showcourses=0, $showusers=0, $logformat='showashtml') {
 
-    global $USER, $CFG, $DB, $OUTPUT, $SESSION;
+    global $USER, $CFG, $DB, $OUTPUT, $SESSION, $SITE;
 
     // first check to see if we can override showcourses and showusers
     $numcourses =  $DB->count_records("course");
@@ -432,7 +432,7 @@ function report_log_print_selector_form($course, $selecteduser=0, $selecteddate=
         }
     }
 
-    if (has_capability('report/log:view', $sitecontext) && ($course->id == SITEID)) {
+    if (has_capability('report/log:view', $sitecontext) && ($course->id == $SITE->id)) {
         $activities["site_errors"] = get_string("siteerrors");
         if ($modid === "site_errors") {
             $selectedactivity = "site_errors";
@@ -491,7 +491,7 @@ function report_log_print_selector_form($course, $selecteduser=0, $selecteddate=
     } else {
         //        echo '<input type="hidden" name="id" value="'.$course->id.'" />';
         $courses = array();
-        $courses[$course->id] = $course->fullname . (($course->id == SITEID) ? ' ('.get_string('site').') ' : '');
+        $courses[$course->id] = $course->fullname . (($course->id == $SITE->id) ? ' ('.get_string('site').') ' : '');
         echo html_writer::select($courses,"id",$course->id, false);
         if (has_capability('report/log:view', $sitecontext)) {
             $a = new stdClass();

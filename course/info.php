@@ -47,7 +47,7 @@
     // print enrol info
     if ($texts = enrol_get_course_description_texts($course)) {
         echo $OUTPUT->box_start('generalbox icons');
-        echo implode($texts);
+        echo implode('', $texts);
         echo $OUTPUT->box_end();
     }
 
@@ -65,7 +65,7 @@
                 foreach ($users as $teacher) {
                     $fullname = fullname($teacher, has_capability('moodle/site:viewfullnames', $context));
                     $namesarray[] = format_string(role_get_name($role, $context)).': <a href="'.$CFG->wwwroot.'/user/view.php?id='.
-                                    $teacher->id.'&amp;course='.SITEID.'">'.$fullname.'</a>';
+                                    $teacher->id.'&amp;course='.$SITE->id.'">'.$fullname.'</a>';
                 }
             }
         }

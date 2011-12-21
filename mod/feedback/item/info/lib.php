@@ -190,7 +190,7 @@ class feedback_item_info extends feedback_item_base {
      * @return void
      */
     public function print_item_preview($item) {
-        global $USER, $DB, $OUTPUT;
+        global $USER, $DB, $OUTPUT, $SITE;
 
         $align = right_to_left() ? 'right' : 'left';
         $presentation = $item->presentation;
@@ -205,7 +205,7 @@ class feedback_item_info extends feedback_item_base {
         if (!$course = $DB->get_record('course', array('id'=>$courseid))) {
             print_error('error');
         }
-        if ($course->id !== SITEID) {
+        if ($course->id !== $SITE->id) {
             $coursecategory = $DB->get_record('course_categories', array('id'=>$course->category));
         } else {
             $coursecategory = false;
@@ -267,7 +267,7 @@ class feedback_item_info extends feedback_item_base {
      * @return void
      */
     public function print_item_complete($item, $value = '', $highlightrequire = false) {
-        global $USER, $DB, $OUTPUT;
+        global $USER, $DB, $OUTPUT, $SITE;
         $align = right_to_left() ? 'right' : 'left';
 
         $presentation = $item->presentation;
@@ -281,7 +281,7 @@ class feedback_item_info extends feedback_item_base {
         $feedback = $DB->get_record('feedback', array('id'=>$item->feedback));
         $course = $DB->get_record('course', array('id'=>$feedback->course));
 
-        if ($course->id !== SITEID) {
+        if ($course->id !== $SITE->id) {
             $coursecategory = $DB->get_record('course_categories', array('id'=>$course->category));
         } else {
             $coursecategory = false;

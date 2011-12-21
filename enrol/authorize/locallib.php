@@ -105,7 +105,7 @@ function authorize_print_orders($courseid, $userid) {
         $popupmenu .= html_writer::checkbox('enrol_authorize', 1, $userid == $USER->id, get_string('mypaymentsonly', 'enrol_authorize'), array('id'=>$aid));
     }
 
-    if (SITEID != $courseid) {
+    if ($SITE->id != $courseid) {
         $shortname = format_string($course->shortname, true, array('context' => $coursecontext));
         $PAGE->navbar->add($shortname, new moodle_url('/course/view.php', array('id'=>$course->id)));
     }
@@ -196,7 +196,7 @@ function authorize_print_orders($courseid, $userid) {
                 break;
         }
 
-        if (SITEID != $courseid) {
+        if ($SITE->id != $courseid) {
             $where .= "AND (e.courseid = :courseid) ";
             $params['courseid'] = $courseid;
         }
@@ -252,7 +252,7 @@ function authorize_print_orders($courseid, $userid) {
  */
 function authorize_print_order($orderid)
 {
-    global $CFG, $USER, $DB, $OUTPUT, $PAGE;
+    global $CFG, $USER, $DB, $OUTPUT, $PAGE, $SITE;
     global $strs, $authstrs;
 
     $plugin = enrol_get_plugin('authorize');
@@ -299,7 +299,7 @@ function authorize_print_order($orderid)
         }
     }
 
-    if (SITEID != $course->id) {
+    if ($SITE->id != $course->id) {
         $shortname = format_string($course->shortname, true, array('context' => $coursecontext));
         $PAGE->navbar->add($shortname, new moodle_url('/course/view.php', array('id'=>$course->id)));
     }

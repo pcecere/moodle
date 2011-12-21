@@ -117,10 +117,15 @@ interface moodle_session {
 class emergency_session implements moodle_session {
 
     public function __construct() {
+        global $TENANT;
+
         // session not used at all
         $_SESSION = array();
         $_SESSION['SESSION'] = new stdClass();
         $_SESSION['USER']    = new stdClass();
+
+        $_SESSION['USER']->id = 0;
+        $_SESSION['USER']->tenantid = isset($TENANT->id) ? $TENANT->id : 0;
     }
 
     /**
@@ -163,13 +168,12 @@ abstract class session_stub implements moodle_session {
     protected $justloggedout;
 
     public function __construct() {
-        global $CFG;
+        global $CFG, $TENANT;
 
         if (NO_MOODLE_COOKIES) {
             // session not used at all
             $_SESSION = array();
             $_SESSION['SESSION'] = new stdClass();
-            $_SESSION['USER']    = new stdClass();
 
         } else {
             $this->prepare_cookies();
@@ -188,9 +192,12 @@ abstract class session_stub implements moodle_session {
                     $_SESSION['SESSION']->has_timed_out = true;
                 }
             }
-            if (!isset($_SESSION['USER'])) {
-                $_SESSION['USER'] = new stdClass();
-            }
+        }
+
+        if (!isset($_SESSION['USER'])) {
+            $_SESSION['USER'] = new stdClass();
+            $_SESSION['USER']->id = 0;
+            $_SESSION['USER']->tenantid = $TENANT->id;
         }
 
         $this->check_user_initialised();
@@ -203,7 +210,7 @@ abstract class session_stub implements moodle_session {
      * @return void
      */
     public function terminate_current() {
-        global $CFG, $SESSION, $USER, $DB;
+        global $CFG, $SESSION, $USER, $DB, $TENANT;
 
         try {
             $DB->delete_records('external_tokens', array('sid'=>session_id(), 'tokentype'=>EXTERNAL_TOKEN_EMBEDDED));
@@ -220,6 +227,8 @@ abstract class session_stub implements moodle_session {
         $_SESSION['SESSION'] = new stdClass();
         $_SESSION['USER']    = new stdClass();
         $_SESSION['USER']->id = 0;
+        $_SESSION['USER']->tenantid = $TENANT->id;
+
         if (isset($CFG->mnet_localhost_id)) {
             $_SESSION['USER']->mnethostid = $CFG->mnet_localhost_id;
         }
@@ -261,7 +270,7 @@ abstract class session_stub implements moodle_session {
      * @return void
      */
     protected function check_user_initialised() {
-        global $CFG;
+        global $CFG, $TENANT;
 
         if (isset($_SESSION['USER']->id)) {
             // already set up $USER
@@ -287,6 +296,7 @@ abstract class session_stub implements moodle_session {
         if (!$user) {
             $user = new stdClass();
             $user->id = 0; // to enable proper function of $CFG->notloggedinroleid hack
+            $user->tenantid = $TENANT->id;
             if (isset($CFG->mnet_localhost_id)) {
                 $user->mnethostid = $CFG->mnet_localhost_id;
             } else {
@@ -563,13 +573,20 @@ class database_session extends session_stub {
      * @return string
      */
     public function handler_read($sid) {
-        global $CFG;
+        global $CFG, $SITE;
 
         if ($this->record and $this->record->sid != $sid) {
             error_log('Weird error reading database session - mismatched sid');
             $this->failed = true;
             return '';
         }
+
+        if ($this->record and $this->record->tenantid != $SITE->tenantid) {
+            error_log('Weird error reading database session - mismatched tenantid');
+            $this->failed = true;
+            return '';
+        }
+
 
         try {
             if (!$record = $this->database->get_record('sessions', array('sid'=>$sid))) {
@@ -580,6 +597,7 @@ class database_session extends session_stub {
                 $record->userid       = 0;
                 $record->timecreated  = $record->timemodified = time();
                 $record->firstip      = $record->lastip = getremoteaddr();
+                $record->tenantid     = $SITE->tenantid;
                 $record->id           = $this->database->insert_record_raw('sessions', $record);
             }
         } catch (Exception $ex) {
@@ -1067,6 +1085,12 @@ function get_moodle_cookie() {
  * @return void
  */
 function session_set_user($user) {
+    global $TENANT;
+
+    if ($TENANT->id != $user->tenantid) {
+        throw new tenant_access_exception();
+    }
+
     $_SESSION['USER'] = $user;
     unset($_SESSION['USER']->description); // conserve memory
     sesskey(); // init session key
@@ -1103,15 +1127,19 @@ function session_loginas($userid, $context) {
         return;
     }
 
+    /// Create the new $USER object with all details and reload needed capabilities
+    $user = get_complete_user_data('id', $userid);
+    $user->realuser       = $_SESSION['USER']->id;
+    $user->loginascontext = $context;
+
+    if ($user->tenantid != $_SESSION['USER']->tenantid) {
+        throw new tenant_access_exception();
+    }
+
     // switch to fresh new $SESSION
     $_SESSION['REALSESSION'] = $_SESSION['SESSION'];
     $_SESSION['SESSION']     = new stdClass();
-
-    /// Create the new $USER object with all details and reload needed capabilities
-    $_SESSION['REALUSER'] = $_SESSION['USER'];
-    $user = get_complete_user_data('id', $userid);
-    $user->realuser       = $_SESSION['REALUSER']->id;
-    $user->loginascontext = $context;
+    $_SESSION['REALUSER']    = $_SESSION['USER'];
 
     // let enrol plugins deal with new enrolments if necessary
     enrol_check_plugins($user);
@@ -1128,7 +1156,18 @@ function session_loginas($userid, $context) {
  * @return void
  */
 function cron_setup_user($user = NULL, $course = NULL) {
-    global $CFG, $SITE, $PAGE;
+    global $CFG, $SITE, $PAGE, $TENANT;
+
+    if ($TENANT->id) {
+        // TODO: add cron support for tenant users
+        throw new coding_exception('support for tenant cron is NOT implemented!');
+    }
+
+    if ($user) {
+        if ($TENANT->id != $user->tenantid) {
+            throw new tenant_access_exception();
+        }
+    }
 
     static $cronuser    = NULL;
     static $cronsession = NULL;

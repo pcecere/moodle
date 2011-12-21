@@ -48,7 +48,7 @@ class user_edit_form extends moodleform {
     }
 
     function definition_after_data() {
-        global $CFG, $DB, $OUTPUT;
+        global $CFG, $DB, $OUTPUT, $SITE;
 
         $mform =& $this->_form;
         $userid = $mform->getElementValue('id');
@@ -77,7 +77,7 @@ class user_edit_form extends moodleform {
                 $fs = get_file_storage();
                 $hasuploadedpicture = ($fs->file_exists($context->id, 'user', 'icon', 0, '/', 'f2.png') || $fs->file_exists($context->id, 'user', 'icon', 0, '/', 'f2.jpg'));
                 if (!empty($user->picture) && $hasuploadedpicture) {
-                    $imagevalue = $OUTPUT->user_picture($user, array('courseid' => SITEID, 'size'=>64));
+                    $imagevalue = $OUTPUT->user_picture($user, array('courseid' => $SITE->id, 'size'=>64));
                 } else {
                     $imagevalue = get_string('none');
                 }

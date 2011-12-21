@@ -27,14 +27,14 @@ require_once(dirname(__FILE__) . '/../config.php');
 require_once($CFG->dirroot . '/message/lib.php');
 
 $userid = optional_param('id', $USER->id, PARAM_INT);    // user id
-$course = optional_param('course', SITEID, PARAM_INT);   // course id (defaults to Site)
+$course = optional_param('course', $SITE->id, PARAM_INT);   // course id (defaults to Site)
 $disableall = optional_param('disableall', 0, PARAM_BOOL); //disable all of this user's notifications
 
 $url = new moodle_url('/message/edit.php');
 if ($userid !== $USER->id) {
     $url->param('id', $userid);
 }
-if ($course != SITEID) {
+if ($course != $SITE->id) {
     $url->param('course', $course);
 }
 $PAGE->set_url($url);
@@ -43,7 +43,7 @@ if (!$course = $DB->get_record('course', array('id' => $course))) {
     print_error('invalidcourseid');
 }
 
-if ($course->id != SITEID) {
+if ($course->id != $SITE->id) {
     require_login($course);
 
 } else {
@@ -75,7 +75,7 @@ $PAGE->requires->js_init_call('M.core_message.init_editsettings');
 if ($user->id == $USER->id) {
     //editing own message profile
     require_capability('moodle/user:editownmessageprofile', $systemcontext);
-    if ($course->id != SITEID && $node = $PAGE->navigation->find($course->id, navigation_node::TYPE_COURSE)) {
+    if ($course->id != $SITE->id && $node = $PAGE->navigation->find($course->id, navigation_node::TYPE_COURSE)) {
         $node->make_active();
         $PAGE->navbar->includesettingsbase = true;
     }
@@ -187,7 +187,7 @@ $strparticipants  = get_string('participants');
 $userfullname     = fullname($user, true);
 
 $PAGE->set_title("$course->shortname: $streditmymessage");
-if ($course->id != SITEID) {
+if ($course->id != $SITE->id) {
     $PAGE->set_heading("$course->fullname: $streditmymessage");
 } else {
     $PAGE->set_heading($course->fullname);

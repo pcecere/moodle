@@ -6,7 +6,7 @@ class block_calendar_upcoming extends block_base {
     }
 
     function get_content() {
-        global $USER, $CFG, $SESSION;
+        global $USER, $CFG, $SESSION, $SITE;
         $cal_m = optional_param( 'cal_m', 0, PARAM_INT );
         $cal_y = optional_param( 'cal_y', 0, PARAM_INT );
 
@@ -34,7 +34,7 @@ class block_calendar_upcoming extends block_base {
                                           '/calendar/event.php?action=new&amp;course='.$courseshown.'">'.
                                            get_string('newevent', 'calendar').'</a>...</div>';
             }
-            if ($courseshown == SITEID) {
+            if ($courseshown == $SITE->id) {
                 // Being displayed at site level. This will cause the filter to fall back to auto-detecting
                 // the list of courses it will be grabbing events from.
                 $filtercourse = calendar_get_default_courses();

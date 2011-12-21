@@ -75,7 +75,7 @@ if (!empty($userid)) {
 // TODO: cleanup this ugly mess!
 $sql = 'SELECT '.((empty($param->fieldscomplete)) ? 'id,roleid,timeend,' : '').$param->fields
 .' FROM {stats_'.$param->table.'} WHERE '
-.(($course->id == SITEID) ? '' : ' courseid = '.$course->id.' AND ')
+.(($course->id == $SITE->id) ? '' : ' courseid = '.$course->id.' AND ')
  .((!empty($userid)) ? ' userid = '.$userid.' AND ' : '')
  .((!empty($roleid)) ? ' roleid = '.$roleid.' AND ' : '')
  . ((!empty($param->stattype)) ? ' stattype = \''.$param->stattype.'\' AND ' : '')

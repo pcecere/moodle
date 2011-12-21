@@ -104,7 +104,7 @@ $params = $param->params;
 $param->table = 'user_'.$param->table;
 
 $sql = 'SELECT timeend,'.$param->fields.' FROM {stats_'.$param->table.'} WHERE '
-.(($course->id == SITEID) ? '' : ' courseid = '.$course->id.' AND ')
+.(($course->id == $SITE->id) ? '' : ' courseid = '.$course->id.' AND ')
     .' userid = '.$user->id.' AND timeend >= '.$param->timeafter .$param->extras
     .' ORDER BY timeend DESC';
 $stats = $DB->get_records_sql($sql, $params); //TODO: improve these params!!

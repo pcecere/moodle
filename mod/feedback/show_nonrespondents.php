@@ -57,7 +57,7 @@ if (! $feedback = $DB->get_record("feedback", array("id"=>$cm->instance))) {
 
 //this page only can be shown on nonanonymous feedbacks in courses
 //we should never reach this page
-if ($feedback->anonymous != FEEDBACK_ANONYMOUS_NO OR $feedback->course == SITEID) {
+if ($feedback->anonymous != FEEDBACK_ANONYMOUS_NO OR $feedback->course == $SITE->id) {
     print_error('error');
 }
 

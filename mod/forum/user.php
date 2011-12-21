@@ -62,7 +62,7 @@ if ($perpage != 5) {
     $url->param('perpage', $perpage);
 }
 
-add_to_log(($isspecificcourse)?$courseid:SITEID, "forum", "user report", 'user.php?'.$url->get_query_string(), $userid);
+add_to_log(($isspecificcourse)?$courseid:$SITE->id, "forum", "user report", 'user.php?'.$url->get_query_string(), $userid);
 
 $user = $DB->get_record("user", array("id" => $userid), '*', MUST_EXIST);
 $usercontext = get_context_instance(CONTEXT_USER, $user->id, MUST_EXIST);

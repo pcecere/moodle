@@ -1095,6 +1095,7 @@ class potential_assignees_course_and_above extends role_assign_user_selector_bas
 
         $sql = " FROM {user}
                 WHERE $wherecondition
+                      AND tenantid = :tenantid
                       AND id NOT IN (
                          SELECT u.id
                            FROM {role_assignments} r, {user} u
@@ -1105,6 +1106,7 @@ class potential_assignees_course_and_above extends role_assign_user_selector_bas
 
         $params['contextid'] = $this->context->id;
         $params['roleid'] = $this->roleid;
+        $params['tenantid'] = $this->context->tenantid;
 
         if (!$this->is_validating()) {
             $potentialmemberscount = $DB->count_records_sql($countfields . $sql, $params);
@@ -1146,6 +1148,7 @@ class existing_role_holders extends role_assign_user_selector_base {
         list($ctxcondition, $ctxparams) = $DB->get_in_or_equal(get_parent_contexts($this->context, true), SQL_PARAMS_NAMED, 'ctx');
         $params = array_merge($params, $ctxparams);
         $params['roleid'] = $this->roleid;
+        $params['tenantid'] = $this->context->tenantid;
 
         $sql = "SELECT ra.id as raid," . $this->required_fields_sql('u') . ",ra.contextid,ra.component
                 FROM {role_assignments} ra
@@ -1154,7 +1157,8 @@ class existing_role_holders extends role_assign_user_selector_base {
                 WHERE
                     $wherecondition AND
                     ctx.id $ctxcondition AND
-                    ra.roleid = :roleid
+                    ra.roleid = :roleid AND
+                    ctx.tenantid = :tenantid
                 ORDER BY ctx.depth DESC, ra.component, u.lastname, u.firstname";
         $contextusers = $DB->get_records_sql($sql, $params);
 
@@ -1517,7 +1521,7 @@ class admins_potential_selector extends user_selector_base {
         $countfields = 'SELECT COUNT(1)';
 
         $sql = " FROM {user}
-                WHERE $wherecondition AND mnethostid = :localmnet";
+                WHERE $wherecondition AND mnethostid = :localmnet AND tenantid = 0";
         $order = ' ORDER BY lastname ASC, firstname ASC';
         $params['localmnet'] = $CFG->mnet_localhost_id; // it could be dangerous to make remote users admins and also this could lead to other problems
 

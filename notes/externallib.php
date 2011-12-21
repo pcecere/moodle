@@ -61,7 +61,7 @@ class core_notes_external extends external_api {
      * @return array (success infos and fail infos)
      */
     public static function create_notes($notes = array()) {
-        global $CFG, $DB;
+        global $CFG, $DB, $SITE;
         require_once($CFG->dirroot . "/notes/lib.php");
 
         $params = self::validate_parameters(self::create_notes_parameters(), array('notes' => $notes));
@@ -142,7 +142,7 @@ class core_notes_external extends external_api {
                         break;
                     case 'site':
                         $dbnote->publishstate = NOTES_STATE_SITE;
-                        $dbnote->courseid = SITEID;
+                        $dbnote->courseid = $SITE->id;
                         break;
                     default:
                         break;

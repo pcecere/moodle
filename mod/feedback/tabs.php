@@ -58,7 +58,7 @@ if (has_capability('mod/feedback:edititems', $context)) {
 }
 
 if (has_capability('mod/feedback:viewreports', $context)) {
-    if ($feedback->course == SITEID) {
+    if ($feedback->course == $SITE->id) {
         $url_params = array('id'=>$usedid, 'courseid'=>$courseid, 'do_show'=>'analysis');
         $analysisurl = new moodle_url('/mod/feedback/analysis_course.php', $url_params);
         $row[] = new tabobject('analysis',
@@ -79,7 +79,7 @@ if (has_capability('mod/feedback:viewreports', $context)) {
                             $reporturl->out(),
                             get_string('show_entries', 'feedback'));
 
-    if ($feedback->anonymous == FEEDBACK_ANONYMOUS_NO AND $feedback->course != SITEID) {
+    if ($feedback->anonymous == FEEDBACK_ANONYMOUS_NO AND $feedback->course != $SITE->id) {
         $nonrespondenturl = new moodle_url('/mod/feedback/show_nonrespondents.php', array('id'=>$usedid));
         $row[] = new tabobject('nonrespondents',
                                 $nonrespondenturl->out(),

@@ -54,7 +54,12 @@ define('LASTACCESS_UPDATE_SECS', 60);
  * @return stdClass {@link $USER} record from DB, false if not found
  */
 function get_admin() {
-    global $CFG, $DB;
+    global $CFG, $DB, $TENANT;
+
+    if ($TENANT->id) {
+        // no admins in tenant site, sorry
+        return false;
+    }
 
     static $mainadmin = null;
 
@@ -87,7 +92,12 @@ function get_admin() {
  * @return array
  */
 function get_admins() {
-    global $DB, $CFG;
+    global $DB, $CFG, $TENANT;
+
+    if ($TENANT->id) {
+        // no admins in tenant site, sorry
+        return array();
+    }
 
     if (empty($CFG->siteadmins)) {  // Should not happen on an ordinary site
         return array();
@@ -106,10 +116,6 @@ function get_admins() {
  * If $coursid specifies the site course then this function searches
  * through all undeleted and confirmed users
  *
- * @global object
- * @uses SITEID
- * @uses SQL_PARAMS_NAMED
- * @uses CONTEXT_COURSE
  * @param int $courseid The course in question.
  * @param int $groupid The group in question.
  * @param string $searchtext The string to search for
@@ -118,7 +124,7 @@ function get_admins() {
  * @return array
  */
 function search_users($courseid, $groupid, $searchtext, $sort='', array $exceptions=null) {
-    global $DB;
+    global $DB, $TENANT, $SITE;
 
     $fullname  = $DB->sql_fullname('u.firstname', 'u.lastname');
 
@@ -136,11 +142,12 @@ function search_users($courseid, $groupid, $searchtext, $sort='', array $excepti
         $order = "";
     }
 
-    $select = "u.deleted = 0 AND u.confirmed = 1 AND (".$DB->sql_like($fullname, ':search1', false)." OR ".$DB->sql_like('u.email', ':search2', false).")";
+    $select = "u.tenantid = :tenantid AND u.deleted = 0 AND u.confirmed = 1 AND (".$DB->sql_like($fullname, ':search1', false)." OR ".$DB->sql_like('u.email', ':search2', false).")";
+    $params['tenantid'] = $TENANT->id;
     $params['search1'] = "%$searchtext%";
     $params['search2'] = "%$searchtext%";
 
-    if (!$courseid or $courseid == SITEID) {
+    if (!$courseid or $courseid == $SITE->id) {
         $sql = "SELECT u.id, u.firstname, u.lastname, u.email
                   FROM {user} u
                  WHERE $select
@@ -177,9 +184,6 @@ function search_users($courseid, $groupid, $searchtext, $sort='', array $excepti
 /**
  * Returns a subset of users
  *
- * @global object
- * @uses DEBUG_DEVELOPER
- * @uses SQL_PARAMS_NAMED
  * @param bool $get If false then only a count of the records is returned
  * @param string $search A simple string to search for
  * @param bool $confirmed A switch to allow/disallow unconfirmed users
@@ -195,7 +199,7 @@ function search_users($courseid, $groupid, $searchtext, $sort='', array $excepti
  */
 function get_users($get=true, $search='', $confirmed=false, array $exceptions=null, $sort='firstname ASC',
                    $firstinitial='', $lastinitial='', $page='', $recordsperpage='', $fields='*', $extraselect='', array $extraparams=null) {
-    global $DB, $CFG;
+    global $DB, $CFG, $TENANT;
 
     if ($get && !$recordsperpage) {
         debugging('Call to get_users with $get = true no $recordsperpage limit. ' .
@@ -206,8 +210,8 @@ function get_users($get=true, $search='', $confirmed=false, array $exceptions=nu
 
     $fullname  = $DB->sql_fullname();
 
-    $select = " id <> :guestid AND deleted = 0";
-    $params = array('guestid'=>$CFG->siteguest);
+    $select = " id <> :guestid AND deleted = 0 AND tenantid = :gutenantid";
+    $params = array('guestid'=>$CFG->siteguest, 'gutenantid'=>$TENANT->id);
 
     if (!empty($search)){
         $search = trim($search);
@@ -268,12 +272,12 @@ function get_users($get=true, $search='', $confirmed=false, array $exceptions=nu
 function get_users_listing($sort='lastaccess', $dir='ASC', $page=0, $recordsperpage=0,
                            $search='', $firstinitial='', $lastinitial='', $extraselect='',
                            array $extraparams=null, $extracontext = null) {
-    global $DB;
+    global $DB, $TENANT;
 
     $fullname  = $DB->sql_fullname();
 
-    $select = "deleted <> 1";
-    $params = array();
+    $select = "deleted <> 1 AND tenantid = :gultenantid";
+    $params = array('gultenantid'=>$TENANT->id);
 
     if (!empty($search)) {
         $search = trim($search);
@@ -329,10 +333,10 @@ function get_users_listing($sort='lastaccess', $dir='ASC', $page=0, $recordsperp
  * @return array of unconfirmed users
  */
 function get_users_confirmed() {
-    global $DB, $CFG;
+    global $DB, $CFG, $TENANT;
     return $DB->get_records_sql("SELECT *
                                    FROM {user}
-                                  WHERE confirmed = 1 AND deleted = 0 AND id <> ?", array($CFG->siteguest));
+                                  WHERE confirmed = 1 AND deleted = 0 AND id <> ? AND tenantid = ?", array($CFG->siteguest, $TENANT->id));
 }
 
 
@@ -342,16 +346,25 @@ function get_users_confirmed() {
 /**
  * Returns $course object of the top-level site.
  *
+ * @param int $tenantid NULL means current tenant site
  * @return object A {@link $COURSE} object for the site, exception if not found
  */
-function get_site() {
-    global $SITE, $DB;
+function get_site($tenantid = NULL) {
+    global $SITE, $DB, $TENANT;
 
-    if (!empty($SITE->id)) {   // We already have a global to use, so return that
+    if (is_null($tenantid)) {
+        if (!empty($TENANT->id)) {
+            $tenantid = $TENANT->id;
+        } else {
+            $tenantid = 0;
+        }
+    }
+
+    if (!empty($SITE->id) and ($SITE->tenantid == $tenantid)) {   // We already have a global to use, so return that
         return $SITE;
     }
 
-    if ($course = $DB->get_record('course', array('category'=>0))) {
+    if ($course = $DB->get_record('course', array('category'=>0, 'tenantid'=>$tenantid))) {
         return $course;
     } else {
         // course table exists, but the site is not there,
@@ -378,13 +391,12 @@ function get_site() {
  * @return array Array of courses
  */
 function get_courses($categoryid="all", $sort="c.sortorder ASC", $fields="c.*") {
+    global $USER, $CFG, $DB, $TENANT;
 
-    global $USER, $CFG, $DB;
-
-    $params = array();
+    $params = array('tenantid'=>$TENANT->id);
 
     if ($categoryid !== "all" && is_numeric($categoryid)) {
-        $categoryselect = "WHERE c.category = :catid";
+        $categoryselect = "AND c.category = :catid";
         $params['catid'] = $categoryid;
     } else {
         $categoryselect = "";
@@ -403,7 +415,8 @@ function get_courses($categoryid="all", $sort="c.sortorder ASC", $fields="c.*") 
     $sql = "SELECT $fields $ccselect
               FROM {course} c
            $ccjoin
-              $categoryselect
+             WHERE c.tenantid = :tenantid
+                   $categoryselect
               $sortstatement";
 
     // pull out all course matching the cat
@@ -448,13 +461,13 @@ function get_courses($categoryid="all", $sort="c.sortorder ASC", $fields="c.*") 
  */
 function get_courses_page($categoryid="all", $sort="c.sortorder ASC", $fields="c.*",
                           &$totalcount, $limitfrom="", $limitnum="") {
-    global $USER, $CFG, $DB;
+    global $USER, $CFG, $DB, $TENANT;
 
-    $params = array();
+    $params = array('tenantid'=>$TENANT->id);
 
     $categoryselect = "";
     if ($categoryid != "all" && is_numeric($categoryid)) {
-        $categoryselect = "WHERE c.category = :catid";
+        $categoryselect = "AND c.category = :catid";
         $params['catid'] = $categoryid;
     } else {
         $categoryselect = "";
@@ -471,7 +484,8 @@ function get_courses_page($categoryid="all", $sort="c.sortorder ASC", $fields="c
     $sql = "SELECT $fields $ccselect
               FROM {course} c
               $ccjoin
-           $categoryselect
+             WHERE c.tenantid = :tenantid
+                   $categoryselect
           ORDER BY $sort";
 
     // pull out all course matching the cat
@@ -508,13 +522,6 @@ function get_courses_page($categoryid="all", $sort="c.sortorder ASC", $fields="c
  * - $course->managers - array containing RA objects that include a $user obj
  *                       with the minimal fields needed for fullname()
  *
- * @global object
- * @global object
- * @global object
- * @uses CONTEXT_COURSE
- * @uses CONTEXT_SYSTEM
- * @uses CONTEXT_COURSECAT
- * @uses SITEID
  * @param int|string $categoryid Either the categoryid for the courses or 'all'
  * @param string $sort A SQL sort field and direction
  * @param array $fields An array of additional fields to fetch
@@ -536,9 +543,9 @@ function get_courses_wmanagers($categoryid=0, $sort="c.sortorder ASC", $fields=a
      * So this should _never_ get called with 'all' on a large site.
      *
      */
-    global $USER, $CFG, $DB;
+    global $USER, $CFG, $DB, $TENANT, $SITE;
 
-    $params = array();
+    $params = array('tenantid'=>$TENANT->id, 'siteid'=>$SITE->id);
     $allcats = false; // bool flag
     if ($categoryid === 'all') {
         $categoryclause   = '';
@@ -577,7 +584,7 @@ function get_courses_wmanagers($categoryid=0, $sort="c.sortorder ASC", $fields=a
         $sortstatement = "ORDER BY $sort";
     }
 
-    $where = 'WHERE c.id != ' . SITEID;
+    $where = "WHERE c.id <> :siteid AND c.tenantid = :tenantid";
     if ($categoryclause !== ''){
         $where = "$where AND $categoryclause";
     }
@@ -658,7 +665,7 @@ function get_courses_wmanagers($categoryid=0, $sort="c.sortorder ASC", $fields=a
                        u.id AS userid, u.firstname, u.lastname
                   FROM {role_assignments} ra
                   JOIN {context} ctx ON ra.contextid = ctx.id
-                  JOIN {user} u ON ra.userid = u.id
+                  JOIN {user} u ON (ra.userid = u.id AND u.tenantid = ctx.tenantid)
                   JOIN {role} r ON ra.roleid = r.id
                   LEFT OUTER JOIN {course} c
                        ON (ctx.instanceid=c.id AND ctx.contextlevel=".CONTEXT_COURSE.")
@@ -670,7 +677,7 @@ function get_courses_wmanagers($categoryid=0, $sort="c.sortorder ASC", $fields=a
             $sql .= " OR ra.contextid  IN ($catctxids) )";
         }
 
-        $sql .= "AND ra.roleid IN ({$CFG->coursecontact})
+        $sql .= "AND ra.roleid IN ({$CFG->coursecontact}) AND ctx.tenantid = :tenantid
                       $categoryclause
                 ORDER BY r.sortorder ASC, ctx.contextlevel ASC, ra.sortorder ASC";
         $rs = $DB->get_recordset_sql($sql, $params);
@@ -720,8 +727,6 @@ function get_courses_wmanagers($categoryid=0, $sort="c.sortorder ASC", $fields=a
 /**
  * A list of courses that match a search
  *
- * @global object
- * @global object
  * @param array $searchterms An array of search criteria
  * @param string $sort A field and direction to sort by
  * @param int $page The page number to get
@@ -730,7 +735,7 @@ function get_courses_wmanagers($categoryid=0, $sort="c.sortorder ASC", $fields=a
  * @return object {@link $COURSE} records
  */
 function get_courses_search($searchterms, $sort='fullname ASC', $page=0, $recordsperpage=50, &$totalcount) {
-    global $CFG, $DB;
+    global $CFG, $DB, $TENANT, $SITE;
 
     if ($DB->sql_regex_supported()) {
         $REGEXP    = $DB->sql_regex(true);
@@ -738,7 +743,7 @@ function get_courses_search($searchterms, $sort='fullname ASC', $page=0, $record
     }
 
     $searchcond = array();
-    $params     = array();
+    $params     = array('siteid'=>$SITE->id, 'tenantid'=>$TENANT->id);
     $i = 0;
 
     // Thanks Oracle for your non-ansi concat and type limits in coalesce. MDL-29912
@@ -801,7 +806,7 @@ function get_courses_search($searchterms, $sort='fullname ASC', $page=0, $record
     $sql = "SELECT c.* $ccselect
               FROM {course} c
            $ccjoin
-             WHERE $searchcond AND c.id <> ".SITEID."
+             WHERE $searchcond AND c.id <> :siteid AND c.tenantid = :tenantid
           ORDER BY $sort";
 
     $rs = $DB->get_recordset_sql($sql, $params);
@@ -844,7 +849,7 @@ function get_courses_search($searchterms, $sort='fullname ASC', $page=0, $record
  * @return array of categories
  */
 function get_categories($parent='none', $sort=NULL, $shallow=true) {
-    global $DB;
+    global $DB, $TENANT;
 
     if ($sort === NULL) {
         $sort = 'ORDER BY cc.sortorder ASC';
@@ -860,16 +865,17 @@ function get_categories($parent='none', $sort=NULL, $shallow=true) {
         $sql = "SELECT cc.* $ccselect
                   FROM {course_categories} cc
                $ccjoin
+                 WHERE cc.tenantid=?
                 $sort";
-        $params = array();
+        $params = array($TENANT->id);
 
     } elseif ($shallow) {
         $sql = "SELECT cc.* $ccselect
                   FROM {course_categories} cc
                $ccjoin
-                 WHERE cc.parent=?
+                 WHERE cc.parent=? AND cc.tenantid=?
                 $sort";
-        $params = array($parent);
+        $params = array($parent, $TENANT->id);
 
     } else {
         $sql = "SELECT cc.* $ccselect
@@ -877,9 +883,9 @@ function get_categories($parent='none', $sort=NULL, $shallow=true) {
                $ccjoin
                   JOIN {course_categories} ccp
                        ON ((cc.parent = ccp.id) OR (cc.path LIKE ".$DB->sql_concat('ccp.path',"'/%'")."))
-                 WHERE ccp.id=?
+                 WHERE ccp.id=? AND cc.tenantid=?
                 $sort";
-        $params = array($parent);
+        $params = array($parent, $TENANT->id);
     }
     $categories = array();
 
@@ -919,70 +925,55 @@ function get_all_subcategories($catid) {
 }
 
 /**
- * Return specified category, default if given does not exist
+ * Return specified category, default if given does not exist.
  *
- * @global object
- * @uses MAX_COURSES_IN_CATEGORY
- * @uses CONTEXT_COURSECAT
- * @uses SYSCONTEXTID
+ * This is supposed to be used when looking for default category mostly
+ *
  * @param int $catid course category id
- * @return object caregory
+ * @return stdClass category
  */
 function get_course_category($catid=0) {
-    global $DB;
-
-    $category = false;
+    global $DB, $TENANT, $CFG;
 
     if (!empty($catid)) {
-        $category = $DB->get_record('course_categories', array('id'=>$catid));
-    }
-
-    if (!$category) {
-        // the first category is considered default for now
-        if ($category = $DB->get_records('course_categories', null, 'sortorder', '*', 0, 1)) {
-            $category = reset($category);
-
-        } else {
-            $cat = new stdClass();
-            $cat->name         = get_string('miscellaneous');
-            $cat->depth        = 1;
-            $cat->sortorder    = MAX_COURSES_IN_CATEGORY;
-            $cat->timemodified = time();
-            $catid = $DB->insert_record('course_categories', $cat);
-            // make sure category context exists
-            get_context_instance(CONTEXT_COURSECAT, $catid);
-            mark_context_dirty('/'.SYSCONTEXTID);
-            fix_course_sortorder(); // Required to build course_categories.depth and .path.
-            $category = $DB->get_record('course_categories', array('id'=>$catid));
+        if ($category = $DB->get_record('course_categories', array('id'=>$catid, 'tenantid'=>$TENANT->id))) {
+            return $category;
+        }
+    } else  if (!empty($CFG->defaultrequestcategory)) {
+        if ($category = $DB->get_record('course_categories', array('id'=>$CFG->defaultrequestcategory, 'tenantid'=>$TENANT->id))) {
+            return $category;
         }
     }
 
-    return $category;
+    // the first category is considered default for now
+    if ($category = $DB->get_records('course_categories', array('tenantid'=>$TENANT->id), 'sortorder', '*', 0, 1)) {
+        $category = reset($category);
+        return $category;
+    }
+
+    // note: DO NOTE DARE TO CREATE NEW CATEGORY HERE!!!
+
+    // let's trigger exception - something is very wrong with this site!!
+    return $DB->get_record('course_categories', array('id'=>$catid, 'tenantid'=>$TENANT->id), '*', MUST_EXIST);
 }
 
 /**
  * Fixes course category and course sortorder, also verifies category and course parents and paths.
  * (circular references are not fixed)
  *
- * @global object
- * @global object
- * @uses MAX_COURSES_IN_CATEGORY
- * @uses MAX_COURSE_CATEGORIES
- * @uses SITEID
- * @uses CONTEXT_COURSE
  * @return void
  */
 function fix_course_sortorder() {
-    global $DB, $SITE;
+    global $DB, $TENANT;
 
     //WARNING: this is PHP5 only code!
 
-    if ($unsorted = $DB->get_records('course_categories', array('sortorder'=>0))) {
+    if ($unsorted = $DB->get_records('course_categories', array('sortorder'=>0, 'tenantid'=>$TENANT->id))) {
         //move all categories that are not sorted yet to the end
-        $DB->set_field('course_categories', 'sortorder', MAX_COURSES_IN_CATEGORY*MAX_COURSE_CATEGORIES, array('sortorder'=>0));
+        $DB->set_field('course_categories', 'sortorder', MAX_COURSES_IN_CATEGORY*MAX_COURSE_CATEGORIES, array('sortorder'=>0, 'tenantid'=>$TENANT->id));
     }
 
-    $allcats = $DB->get_records('course_categories', null, 'sortorder, id', 'id, sortorder, parent, depth, path');
+    $allcats = $DB->get_records('course_categories', array('tenantid'=>$TENANT->id), 'sortorder, id', 'id, sortorder, parent, depth, path');
     $topcats    = array();
     $brokencats = array();
     foreach ($allcats as $cat) {
@@ -1012,7 +1003,7 @@ function fix_course_sortorder() {
     if ($brokencats) {
         $defaultcat = reset($topcats);
         foreach ($brokencats as $cat) {
-            $topcats[] = $cat;
+            $topcats[$cat->id] = $cat;
         }
     }
 
@@ -1021,25 +1012,9 @@ function fix_course_sortorder() {
     $fixcontexts = array();
     _fix_course_cats($topcats, $sortorder, 0, 0, '', $fixcontexts);
 
-    // detect if there are "multiple" frontpage courses and fix them if needed
-    $frontcourses = $DB->get_records('course', array('category'=>0), 'id');
-    if (count($frontcourses) > 1) {
-        if (isset($frontcourses[SITEID])) {
-            $frontcourse = $frontcourses[SITEID];
-            unset($frontcourses[SITEID]);
-        } else {
-            $frontcourse = array_shift($frontcourses);
-        }
-        $defaultcat = reset($topcats);
-        foreach ($frontcourses as $course) {
-            $DB->set_field('course', 'category', $defaultcat->id, array('id'=>$course->id));
-            $context = get_context_instance(CONTEXT_COURSE, $course->id);
-            $fixcontexts[$context->id] = $context;
-        }
-        unset($frontcourses);
-    } else {
-        $frontcourse = reset($frontcourses);
-    }
+    // note: do NOT mess with frontpage courses here even if there appear to be multiple - this must be fixed in accesslib!!!
+    // just fix the forntpage sortorder
+    $DB->set_field('course', 'sortorder', 1, array('category'=>0, 'tenantid'=>$TENANT->id));
 
     // now fix the paths and depths in context table if needed
     if ($fixcontexts) {
@@ -1055,19 +1030,15 @@ function fix_course_sortorder() {
     unset($brokencats);
     unset($fixcontexts);
 
-    // fix frontpage course sortorder
-    if ($frontcourse->sortorder != 1) {
-        $DB->set_field('course', 'sortorder', 1, array('id'=>$frontcourse->id));
-    }
-
     // now fix the course counts in category records if needed
     $sql = "SELECT cc.id, cc.coursecount, COUNT(c.id) AS newcount
               FROM {course_categories} cc
               LEFT JOIN {course} c ON c.category = cc.id
+             WHERE cc.tenantid = :tenantid
           GROUP BY cc.id, cc.coursecount
             HAVING cc.coursecount <> COUNT(c.id)";
 
-    if ($updatecounts = $DB->get_records_sql($sql)) {
+    if ($updatecounts = $DB->get_records_sql($sql, array('tenantid'=>$TENANT->id))) {
         // categories with more courses than MAX_COURSES_IN_CATEGORY
         $categories = array();
         foreach ($updatecounts as $cat) {
@@ -1088,9 +1059,9 @@ function fix_course_sortorder() {
     $sql = "SELECT DISTINCT cc.id, cc.sortorder
               FROM {course_categories} cc
               JOIN {course} c ON c.category = cc.id
-             WHERE c.sortorder < cc.sortorder OR c.sortorder > cc.sortorder + ".MAX_COURSES_IN_CATEGORY;
+             WHERE cc.tenantid = :tenantid AND c.sortorder < cc.sortorder OR c.sortorder > cc.sortorder + ".MAX_COURSES_IN_CATEGORY;
 
-    if ($fixcategories = $DB->get_records_sql($sql)) {
+    if ($fixcategories = $DB->get_records_sql($sql, array('tenantid'=>$TENANT->id))) {
         //fix the course sortorder ranges
         foreach ($fixcategories as $cat) {
             $sql = "UPDATE {course}
@@ -1105,16 +1076,17 @@ function fix_course_sortorder() {
     $sql = "SELECT DISTINCT c1.category AS id , cc.sortorder
               FROM {course} c1
               JOIN {course} c2 ON c1.sortorder = c2.sortorder
-              JOIN {course_categories} cc ON (c1.category = cc.id)
+              JOIN {course_categories} cc ON (c1.category = cc.id AND cc.tenantid = :tenantid)
              WHERE c1.id <> c2.id";
-    $fixcategories = $DB->get_records_sql($sql);
+    $fixcategories = $DB->get_records_sql($sql, array('tenantid'=>$TENANT->id));
 
     $sql = "SELECT cc.id, cc.sortorder, cc.coursecount, MAX(c.sortorder) AS maxsort, MIN(c.sortorder) AS minsort
               FROM {course_categories} cc
               JOIN {course} c ON c.category = cc.id
+             WHERE cc.tenantid = :tenantid
           GROUP BY cc.id, cc.sortorder, cc.coursecount
             HAVING (MAX(c.sortorder) <>  cc.sortorder + cc.coursecount) OR (MIN(c.sortorder) <>  cc.sortorder + 1)";
-    $gapcategories = $DB->get_records_sql($sql);
+    $gapcategories = $DB->get_records_sql($sql, array('tenantid'=>$TENANT->id));
 
     foreach ($gapcategories as $cat) {
         if (isset($fixcategories[$cat->id])) {
@@ -1621,15 +1593,21 @@ function coursemodule_visible_for_user($cm, $userid=0) {
     if (empty($userid)) {
         $userid = $USER->id;
     }
-    if (!$cm->visible and !has_capability('moodle/course:viewhiddenactivities', get_context_instance(CONTEXT_MODULE, $cm->id), $userid)) {
+    $usercontext = context_user::instance($userid);
+    $modcontext = context_module::instance($cm->id);
+
+    if ($usercontext->tenantid != $modcontext->tenantid) {
+        return false;
+    }
+
+    if (!$cm->visible and !has_capability('moodle/course:viewhiddenactivities', $modcontext, $userid)) {
         return false;
     }
     if ($CFG->enableavailability) {
         require_once($CFG->libdir.'/conditionlib.php');
         $ci=new condition_info($cm,CONDITION_MISSING_EXTRATABLE);
         if(!$ci->is_available($cm->availableinfo,false,$userid) and
-            !has_capability('moodle/course:viewhiddenactivities',
-                get_context_instance(CONTEXT_MODULE, $cm->id), $userid)) {
+            !has_capability('moodle/course:viewhiddenactivities', $modcontext, $userid)) {
             return false;
         }
     }
@@ -1649,12 +1627,6 @@ function coursemodule_visible_for_user($cm, $userid=0) {
  * than web server hits, and provide a way to easily reconstruct what
  * any particular student has been doing.
  *
- * @global object
- * @global object
- * @global object
- * @uses SITEID
- * @uses DEBUG_DEVELOPER
- * @uses DEBUG_ALL
  * @param    int     $courseid  The course id
  * @param    string  $module  The module name - e.g. forum, journal, resource, course, user etc
  * @param    string  $action  'view', 'update', 'add' or 'delete', possibly followed by another word to clarify.
@@ -1668,7 +1640,7 @@ function add_to_log($courseid, $module, $action, $url='', $info='', $cm=0, $user
     // Note that this function intentionally does not follow the normal Moodle DB access idioms.
     // This is for a good reason: it is the most frequently used DB update function,
     // so it has been optimised for speed.
-    global $DB, $CFG, $USER;
+    global $DB, $CFG, $USER, $TENANT;
 
     if ($cm === '' || is_null($cm)) { // postgres won't translate empty string to its default
         $cm = 0;
@@ -1718,7 +1690,7 @@ function add_to_log($courseid, $module, $action, $url='', $info='', $cm=0, $user
     if (defined('MDL_PERFDB')) { global $PERF ; $PERF->logwrites++;};
 
     $log = array('time'=>$timenow, 'userid'=>$userid, 'course'=>$courseid, 'ip'=>$REMOTE_ADDR, 'module'=>$module,
-                 'cmid'=>$cm, 'action'=>$action, 'url'=>$url, 'info'=>$info);
+                 'cmid'=>$cm, 'action'=>$action, 'url'=>$url, 'info'=>$info, 'tenantid'=>$TENANT->id);
 
     try {
         $DB->insert_record_raw('log', $log, false);
@@ -1746,16 +1718,11 @@ function add_to_log($courseid, $module, $action, $url='', $info='', $cm=0, $user
 /**
  * Store user last access times - called when use enters a course or site
  *
- * @global object
- * @global object
- * @global object
- * @uses LASTACCESS_UPDATE_SECS
- * @uses SITEID
  * @param int $courseid, empty means site
  * @return void
  */
 function user_accesstime_log($courseid=0) {
-    global $USER, $CFG, $DB;
+    global $USER, $CFG, $DB, $SITE;
 
     if (!isloggedin() or session_is_loggedinas()) {
         // no access tracking
@@ -1763,7 +1730,7 @@ function user_accesstime_log($courseid=0) {
     }
 
     if (empty($courseid)) {
-        $courseid = SITEID;
+        $courseid = $SITE->id;
     }
 
     $timenow = time();
@@ -1781,7 +1748,7 @@ function user_accesstime_log($courseid=0) {
         $DB->update_record_raw('user', $last);
     }
 
-    if ($courseid == SITEID) {
+    if ($courseid == $SITE->id) {
     ///  no user_lastaccess for frontpage
         return;
     }
@@ -1933,9 +1900,9 @@ function get_logs_userday($userid, $courseid, $daystart) {
  * @return int
  */
 function count_login_failures($mode, $username, $lastlogin) {
-    global $DB;
+    global $DB, $TENANT;
 
-    $params = array('mode'=>$mode, 'username'=>$username, 'lastlogin'=>$lastlogin);
+    $params = array('mode'=>$mode, 'username'=>$username, 'lastlogin'=>$lastlogin, 'tenantid'=>$TENANT->id);
     $select = "module='login' AND action='error' AND time > :lastlogin";
 
     $count = new stdClass();

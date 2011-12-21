@@ -32,7 +32,7 @@ if (empty($CFG->usetags)) {
     print_error('tagsaredisabled', 'tag');
 }
 
-if ($courseid != SITEID) {
+if ($courseid != $SITE->id) {
     if (! ($course = $DB->get_record('course', array('id' => $courseid), '*')) ) {
         print_error('invalidcourse');
     }

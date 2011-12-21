@@ -57,7 +57,7 @@ if (empty($cleanedroleids)) {
 $PAGE->requires->js_init_call('M.tool_capability.init', array(get_string('search')));
 
 // Log.
-add_to_log(SITEID, "admin", "tool capability", "tool/capability/index.php?capability=$capability", $capability);
+add_to_log($SITE->id, "admin", "tool capability", "tool/capability/index.php?capability=$capability", $capability);
 
 // Print the header.
 admin_externalpage_setup('toolcapability');

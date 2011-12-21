@@ -188,7 +188,7 @@ if ($do_show == 'showentries') {
         $str_course = get_string('course');
 
         $completed_fb_count = feedback_get_completeds_group_count($feedback, $mygroupid);
-        if ($feedback->course == SITEID) {
+        if ($feedback->course == $SITE->id) {
             $analysisurl = new moodle_url('/mod/feedback/analysis_course.php', array('id'=>$id, 'courseid'=>$courseid));
             echo $OUTPUT->box_start('mdl-align');
             echo '<a href="'.$analysisurl->out().'">';
@@ -214,7 +214,7 @@ if ($do_show == 'showentries') {
         echo '<div class="clearer"></div>';
         echo $OUTPUT->box_start('mdl-align');
         if (!$students) {
-            if ($courseid != SITEID) {
+            if ($courseid != $SITE->id) {
                 echo $OUTPUT->notification(get_string('noexistingparticipants', 'enrol'));
             }
         } else {

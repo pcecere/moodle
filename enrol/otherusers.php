@@ -38,7 +38,7 @@ $context = get_context_instance(CONTEXT_COURSE, $course->id, MUST_EXIST);
 require_login($course);
 require_capability('moodle/role:assign', $context);
 
-if ($course->id == SITEID) {
+if ($course->id == $SITE->id) {
     redirect("$CFG->wwwroot/");
 }
 

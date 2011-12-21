@@ -139,6 +139,7 @@ class plugin_manager {
             foreach ($mods as $mod => $moddir) {
                 $modsubplugins = array();
                 if (file_exists($moddir . '/db/subplugins.php')) {
+                    $subplugins = array();
                     include($moddir . '/db/subplugins.php');
                     foreach ($subplugins as $subplugintype => $subplugintyperootdir) {
                         $subplugin = new stdClass();
@@ -304,7 +305,7 @@ class plugin_manager {
             'auth' => array(
                 'cas', 'db', 'email', 'fc', 'imap', 'ldap', 'manual', 'mnet',
                 'nntp', 'nologin', 'none', 'pam', 'pop3', 'radius',
-                'shibboleth', 'webservice'
+                'shibboleth', 'tenant', 'webservice'
             ),
 
             'block' => array(
@@ -318,7 +319,7 @@ class plugin_manager {
                 'private_files', 'quiz_results', 'recent_activity',
                 'rss_client', 'search_forums', 'section_links',
                 'selfcompletion', 'settings', 'site_main_menu',
-                'social_activities', 'tag_flickr', 'tag_youtube', 'tags'
+                'social_activities', 'tag_flickr', 'tag_youtube', 'tags', 'tenant'
             ),
 
             'coursereport' => array(
@@ -455,7 +456,7 @@ class plugin_manager {
             'tool' => array(
                 'bloglevelupgrade', 'capability', 'customlang', 'dbtransfer', 'generator',
                 'health', 'innodb', 'langimport', 'multilangupgrade', 'profiling',
-                'qeupgradehelper', 'replace', 'spamcleaner', 'timezoneimport', 'unittest',
+                'qeupgradehelper', 'replace', 'spamcleaner', 'tenant', 'timezoneimport', 'unittest',
                 'uploaduser', 'unsuproles', 'xmldb'
             ),
 

@@ -48,7 +48,7 @@ $itemid      = optional_param('itemid', '',        PARAM_INT);
 
 // parameters for repository
 $contextid   = optional_param('ctx_id',    SYSCONTEXTID, PARAM_INT);    // context ID
-$courseid    = optional_param('course',    SITEID, PARAM_INT);    // course ID
+$courseid    = optional_param('course',    $SITE->id, PARAM_INT);    // course ID
 $env         = optional_param('env', 'filepicker', PARAM_ALPHA);  // opened in file picker, file manager or html editor
 $filename    = optional_param('filename', '',      PARAM_FILE);
 $targetpath  = optional_param('targetpath', '',    PARAM_PATH);

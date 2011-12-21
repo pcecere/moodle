@@ -141,11 +141,13 @@ class file_info_context_course extends file_info {
 
 
     protected function get_area_course_legacy($itemid, $filepath, $filename) {
+        global $SITE;
+
         if (!has_capability('moodle/course:managefiles', $this->context)) {
             return null;
         }
 
-        if ($this->course->id != SITEID and $this->course->legacyfiles != 2) {
+        if ($this->course->id != $SITE->id and $this->course->legacyfiles != 2) {
             // bad luck, legacy course files not used any more
         }
 
@@ -274,7 +276,9 @@ class file_info_context_course extends file_info {
     }
 
     public function get_visible_name() {
-        return ($this->course->id == SITEID) ? get_string('frontpage', 'admin') : format_string($this->course->fullname, true, array('context'=>$this->context));
+        global $SITE;
+
+        return ($this->course->id == $SITE->id) ? get_string('frontpage', 'admin') : format_string($this->course->fullname, true, array('context'=>$this->context));
     }
 
     /**

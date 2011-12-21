@@ -6,7 +6,7 @@ class block_messages extends block_base {
     }
 
     function get_content() {
-        global $USER, $CFG, $DB, $OUTPUT;
+        global $USER, $CFG, $DB, $OUTPUT, $SITE;
 
         if (!$CFG->messaging) {
             $this->content->text = '';
@@ -45,8 +45,8 @@ class block_messages extends block_base {
             $this->content->text .= '<ul class="list">';
             foreach ($users as $user) {
                 $timeago = format_time(time() - $user->lastaccess);
-                $this->content->text .= '<li class="listentry"><div class="user"><a href="'.$CFG->wwwroot.'/user/view.php?id='.$user->id.'&amp;course='.SITEID.'" title="'.$timeago.'">';
-                $this->content->text .= $OUTPUT->user_picture($user, array('courseid'=>SITEID)); //TODO: user might not have capability to view frontpage profile :-(
+                $this->content->text .= '<li class="listentry"><div class="user"><a href="'.$CFG->wwwroot.'/user/view.php?id='.$user->id.'&amp;course='.$SITE->id.'" title="'.$timeago.'">';
+                $this->content->text .= $OUTPUT->user_picture($user, array('courseid'=>$SITE->id)); //TODO: user might not have capability to view frontpage profile :-(
                 $this->content->text .= fullname($user).'</a></div>';
 
                 $link = '/message/index.php?usergroup=unread&id='.$user->id;

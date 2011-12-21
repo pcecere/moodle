@@ -37,11 +37,11 @@ list($context, $course, $cm) = get_context_info_array($contextid);
 $url = new moodle_url('/admin/roles/assign.php', array('contextid' => $contextid));
 
 if ($course) {
-    $isfrontpage = ($course->id == SITEID);
+    $isfrontpage = ($course->id == $SITE->id);
 } else {
     $isfrontpage = false;
     if ($context->contextlevel == CONTEXT_USER) {
-        $course = $DB->get_record('course', array('id'=>optional_param('courseid', SITEID, PARAM_INT)), '*', MUST_EXIST);
+        $course = $DB->get_record('course', array('id'=>optional_param('courseid', $SITE->id, PARAM_INT)), '*', MUST_EXIST);
         $user = $DB->get_record('user', array('id'=>$context->instanceid), '*', MUST_EXIST);
         $url->param('courseid', $course->id);
         $url->param('userid', $user->id);

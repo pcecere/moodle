@@ -33,7 +33,7 @@ class MoodleQuickForm_url extends HTML_QuickForm_text{
         $this->_hiddenLabel = $hiddenLabel;
     }
     function toHtml(){
-        global $CFG, $COURSE, $USER, $PAGE, $OUTPUT;
+        global $CFG, $COURSE, $USER, $PAGE, $OUTPUT, $SITE;
 
         $id     = $this->_attributes['id'];
         $elname = $this->_attributes['name'];
@@ -50,7 +50,7 @@ class MoodleQuickForm_url extends HTML_QuickForm_text{
         }
         $strsaved = get_string('filesaved', 'repository');
         $straddlink = get_string('choosealink', 'repository');
-        if ($COURSE->id == SITEID) {
+        if ($COURSE->id == $SITE->id) {
             $context = get_context_instance(CONTEXT_SYSTEM);
         } else {
             $context = get_context_instance(CONTEXT_COURSE, $COURSE->id);

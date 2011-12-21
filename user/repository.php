@@ -27,7 +27,7 @@ require_once(dirname(dirname(__FILE__)) . '/config.php');
 require_once($CFG->dirroot . '/repository/lib.php');
 
 $config = optional_param('config', 0, PARAM_INT);
-$course  = optional_param('course', SITEID, PARAM_INT);
+$course  = optional_param('course', $SITE->id, PARAM_INT);
 
 $url = new moodle_url('/user/repository.php', array('course'=>$course));
 if ($config !== 0) {

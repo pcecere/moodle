@@ -32,7 +32,7 @@ class enrol_meta_addinstance_form extends moodleform {
     protected $course;
 
     function definition() {
-        global $CFG, $DB;
+        global $CFG, $DB, $SITE;
 
         $mform  = $this->_form;
         $course = $this->_customdata;
@@ -44,7 +44,7 @@ class enrol_meta_addinstance_form extends moodleform {
         $courses = array('' => get_string('choosedots'));
         $rs = $DB->get_recordset('course', array(), 'sortorder ASC', 'id, fullname, shortname, visible');
         foreach ($rs as $c) {
-            if ($c->id == SITEID or $c->id == $course->id or isset($existing[$c->id])) {
+            if ($c->id == $SITE->id or $c->id == $course->id or isset($existing[$c->id])) {
                 continue;
             }
             $coursecontext = get_context_instance(CONTEXT_COURSE, $c->id);
@@ -72,7 +72,7 @@ class enrol_meta_addinstance_form extends moodleform {
     }
 
     function validation($data, $files) {
-        global $DB, $CFG;
+        global $DB, $CFG, $SITE;
 
         // TODO: this is duplicated here because it may be necessary one we implement ajax course selection element
 
@@ -86,7 +86,7 @@ class enrol_meta_addinstance_form extends moodleform {
                 $errors['link'] = get_string('error');
             } else if (!has_capability('enrol/meta:selectaslinked', $coursecontext)) {
                 $errors['link'] = get_string('error');
-            } else if ($c->id == SITEID or $c->id == $this->course->id or isset($existing[$c->id])) {
+            } else if ($c->id == $SITE->id or $c->id == $this->course->id or isset($existing[$c->id])) {
                 $errors['link'] = get_string('error');
             }
         }

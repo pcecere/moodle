@@ -44,7 +44,7 @@ abstract class restore_prechecks_helper {
      * Returns empty array or warnings/errors array
      */
     public static function execute_prechecks($controller, $droptemptablesafter = false) {
-        global $CFG;
+        global $CFG, $SITE;
 
         $errors = array();
         $warnings = array();
@@ -92,7 +92,7 @@ abstract class restore_prechecks_helper {
 
         // Error if restoring over frontpage
         // TODO: Review the whole restore process in order to transform this into one warning (see 1.9)
-        if ($controller->get_courseid() == SITEID) {
+        if ($controller->get_courseid() == $SITE->id) {
             $errors[] = get_string('errorrestorefrontpage', 'backup');
         }
 

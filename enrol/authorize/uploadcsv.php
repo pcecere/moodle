@@ -69,7 +69,7 @@ if (!$form->get_data()) {
 echo $OUTPUT->footer();
 
 function authorize_process_csv($filename) {
-    global $CFG, $SITE, $DB;
+    global $CFG, $SITE, $DB, $SITE;
 
     $plugin = enrol_get_plugin('authorize');
 
@@ -248,7 +248,7 @@ function authorize_process_csv($filename) {
         $eventdata->name              = 'authorize_enrolment';
         $eventdata->userfrom          = $admin;
         $eventdata->userto            = $admin;
-        $eventdata->subject           = format_string($SITE->fullname, true, array('context' => get_context_instance(CONTEXT_COURSE, SITEID))).': Authorize.net CSV ERROR LOG';
+        $eventdata->subject           = format_string($SITE->fullname, true, array('context' => get_context_instance(CONTEXT_COURSE, $SITE->id))).': Authorize.net CSV ERROR LOG';
         $eventdata->fullmessage       = $ignoredlines;
         $eventdata->fullmessageformat = FORMAT_PLAIN;
         $eventdata->fullmessagehtml   = '';

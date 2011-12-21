@@ -10,7 +10,7 @@ class course_edit_form extends moodleform {
     protected $context;
 
     function definition() {
-        global $USER, $CFG, $DB;
+        global $USER, $CFG, $DB, $TENANT;
 
         $mform    = $this->_form;
 
@@ -19,7 +19,11 @@ class course_edit_form extends moodleform {
         $editoroptions = $this->_customdata['editoroptions'];
         $returnto = $this->_customdata['returnto'];
 
-        $systemcontext   = get_context_instance(CONTEXT_SYSTEM);
+        if ($TENANT->id) {
+            $topcontext = context_tenant::instance($TENANT->id);
+        } else {
+            $topcontext = context_system::instance();
+        }
         $categorycontext = get_context_instance(CONTEXT_COURSECAT, $category->id);
 
         if (!empty($course->id)) {
@@ -257,7 +261,7 @@ class course_edit_form extends moodleform {
         }
 
 //--------------------------------------------------------------------------------
-        if (has_capability('moodle/site:config', $systemcontext)) {
+        if (has_capability('moodle/site:config', $topcontext)) {
             if (((!empty($course->requested) && $CFG->restrictmodulesfor == 'requested') || $CFG->restrictmodulesfor == 'all')) {
                 $mform->addElement('header', '', get_string('restrictmodules'));
 

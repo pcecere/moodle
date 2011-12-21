@@ -20,7 +20,7 @@ require_once $CFG->dirroot.'/grade/lib.php';
 require_once $CFG->libdir.'/gradelib.php';
 require_once 'form.php';
 
-$courseid  = optional_param('id', SITEID, PARAM_INT);
+$courseid  = optional_param('id', $SITE->id, PARAM_INT);
 
 $PAGE->set_url('/grade/edit/settings/index.php', array('id'=>$courseid));
 $PAGE->set_pagelayout('admin');

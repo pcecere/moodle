@@ -18,10 +18,10 @@
 
     admin_externalpage_setup('editusers');
 
-    $sitecontext = get_context_instance(CONTEXT_SYSTEM);
+    $topcontext = context_helper::top_context();
     $site = get_site();
 
-    if (!has_capability('moodle/user:update', $sitecontext) and !has_capability('moodle/user:delete', $sitecontext)) {
+    if (!has_capability('moodle/user:update', $topcontext) and !has_capability('moodle/user:delete', $topcontext)) {
         print_error('nopermissions', 'error', '', 'edit/delete users');
     }
 
@@ -39,7 +39,7 @@
     $returnurl = "$CFG->wwwroot/$CFG->admin/user.php";
 
     if ($confirmuser and confirm_sesskey()) {
-        if (!$user = $DB->get_record('user', array('id'=>$confirmuser))) {
+        if (!$user = $DB->get_record('user', array('id'=>$confirmuser, 'tenantid'=>$TENANT->id))) {
             print_error('nousers');
         }
 
@@ -56,9 +56,9 @@
 
     } else if ($delete and confirm_sesskey()) {              // Delete a selected user, after confirmation
 
-        require_capability('moodle/user:delete', $sitecontext);
+        require_capability('moodle/user:delete', $topcontext);
 
-        $user = $DB->get_record('user', array('id'=>$delete), '*', MUST_EXIST);
+        $user = $DB->get_record('user', array('id'=>$delete, 'tenantid'=>$TENANT->id), '*', MUST_EXIST);
 
         if (is_siteadmin($user->id)) {
             print_error('useradminodelete', 'error');
@@ -83,11 +83,11 @@
             }
         }
     } else if ($acl and confirm_sesskey()) {
-        if (!has_capability('moodle/user:delete', $sitecontext)) {
+        if (!has_capability('moodle/user:delete', $topcontext)) {
             // TODO: this should be under a separate capability
             print_error('nopermissions', 'error', '', 'modify the NMET access control list');
         }
-        if (!$user = $DB->get_record('user', array('id'=>$acl))) {
+        if (!$user = $DB->get_record('user', array('id'=>$acl, 'tenantid'=>$TENANT->id))) {
             print_error('nousers', 'error');
         }
         if (!is_mnet_remote_user($user)) {
@@ -117,8 +117,7 @@
     echo $OUTPUT->header();
 
     // Carry on with the user listing
-    $context = context_system::instance();
-    $extracolumns = get_extra_user_fields($context);
+    $extracolumns = get_extra_user_fields($topcontext);
     $columns = array_merge(array('firstname', 'lastname'), $extracolumns,
             array('city', 'country', 'lastaccess'));
 
@@ -150,7 +149,7 @@
 
     list($extrasql, $params) = $ufiltering->get_sql_filter();
     $users = get_users_listing($sort, $dir, $page*$perpage, $perpage, '', '', '',
-            $extrasql, $params, $context);
+            $extrasql, $params, $topcontext);
     $usercount = get_users(false);
     $usersearchcount = get_users(false, '', true, null, "", '', '', '', '', '*', $extrasql, $params);
 
@@ -241,14 +240,14 @@
             if ($user->id == $USER->id or is_siteadmin($user)) {
                 $deletebutton = "";
             } else {
-                if (has_capability('moodle/user:delete', $sitecontext)) {
+                if (has_capability('moodle/user:delete', $topcontext)) {
                     $deletebutton = "<a href=\"user.php?delete=$user->id&amp;sesskey=".sesskey()."\">$strdelete</a>";
                 } else {
                     $deletebutton ="";
                 }
             }
 
-            if (has_capability('moodle/user:update', $sitecontext) and (is_siteadmin($USER) or !is_siteadmin($user)) and !is_mnet_remote_user($user)) {
+            if (has_capability('moodle/user:update', $topcontext) and (is_siteadmin($USER) or !is_siteadmin($user)) and !is_mnet_remote_user($user)) {
                 $editbutton = "<a href=\"$securewwwroot/user/editadvanced.php?id=$user->id&amp;course=$site->id\">$stredit</a>";
                 if ($user->confirmed == 0) {
                     $confirmbutton = "<a href=\"user.php?confirmuser=$user->id&amp;sesskey=".sesskey()."\">" . get_string('confirm') . "</a>";
@@ -276,7 +275,7 @@
                 $confirmbutton = "";
                 // ACL in delete column
                 $deletebutton = get_string($accessctrl, 'mnet');
-                if (has_capability('moodle/user:delete', $sitecontext)) {
+                if (has_capability('moodle/user:delete', $topcontext)) {
                     // TODO: this should be under a separate capability
                     $deletebutton .= " (<a href=\"?acl={$user->id}&amp;accessctrl=$changeaccessto&amp;sesskey=".sesskey()."\">"
                             . get_string($changeaccessto, 'mnet') . " access</a>)";
@@ -313,13 +312,13 @@
     $ufiltering->display_add();
     $ufiltering->display_active();
 
-    if (has_capability('moodle/user:create', $sitecontext)) {
+    if (has_capability('moodle/user:create', $topcontext)) {
         echo $OUTPUT->heading('<a href="'.$securewwwroot.'/user/editadvanced.php?id=-1">'.get_string('addnewuser').'</a>');
     }
     if (!empty($table)) {
         echo html_writer::table($table);
         echo $OUTPUT->paging_bar($usercount, $page, $perpage, $baseurl);
-        if (has_capability('moodle/user:create', $sitecontext)) {
+        if (has_capability('moodle/user:create', $topcontext)) {
             echo $OUTPUT->heading('<a href="'.$securewwwroot.'/user/editadvanced.php?id=-1">'.get_string('addnewuser').'</a>');
         }
     }

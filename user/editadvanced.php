@@ -34,11 +34,13 @@ require_once($CFG->dirroot.'/user/profile/lib.php');
 $PAGE->https_required();
 
 $id     = optional_param('id', $USER->id, PARAM_INT);    // user id; -1 if creating new user
-$course = optional_param('course', SITEID, PARAM_INT);   // course id (defaults to Site)
+$course = optional_param('course', $SITE->id, PARAM_INT);   // course id (defaults to Site)
 
 $PAGE->set_url('/user/editadvanced.php', array('course'=>$course, 'id'=>$id));
 
-$course = $DB->get_record('course', array('id'=>$course), '*', MUST_EXIST);
+$topcontext = context_helper::top_context();
+
+$course = $DB->get_record('course', array('id'=>$course, 'tenantid'=>$TENANT->id), '*', MUST_EXIST);
 
 if (!empty($USER->newadminuser)) {
     $PAGE->set_course($SITE);
@@ -48,12 +50,11 @@ if (!empty($USER->newadminuser)) {
     $PAGE->set_pagelayout('admin');
 }
 
-if ($course->id == SITEID) {
-    $coursecontext = get_context_instance(CONTEXT_SYSTEM);   // SYSTEM context
+if ($course->id == $SITE->id) {
+    $coursecontext = $topcontext;   // SYSTEM context
 } else {
-    $coursecontext = get_context_instance(CONTEXT_COURSE, $course->id);   // Course context
+    $coursecontext = context_course::instance($course->id);   // Course context
 }
-$systemcontext = get_context_instance(CONTEXT_SYSTEM);
 
 if ($id == -1) {
     // creating new user
@@ -62,15 +63,17 @@ if ($id == -1) {
     $user->auth = 'manual';
     $user->confirmed = 1;
     $user->deleted = 0;
-    require_capability('moodle/user:create', $systemcontext);
+    $user->tenantid = $TENANT->id;
+    $user->mnethostid = $CFG->mnet_localhost_id;
+    require_capability('moodle/user:create', $topcontext);
     admin_externalpage_setup('addnewuser', '', array('id' => -1));
 } else {
     // editing existing user
-    require_capability('moodle/user:update', $systemcontext);
-    $user = $DB->get_record('user', array('id'=>$id), '*', MUST_EXIST);
-    $PAGE->set_context(get_context_instance(CONTEXT_USER, $user->id));
+    require_capability('moodle/user:update', $topcontext);
+    $user = $DB->get_record('user', array('id'=>$id, 'tenantid'=>$TENANT->id), '*', MUST_EXIST);
+    $PAGE->set_context(context_user::instance($user->id));
     if ($user->id == $USER->id) {
-        if ($course->id != SITEID && $node = $PAGE->navigation->find($course->id, navigation_node::TYPE_COURSE)) {
+        if ($course->id != $SITE->id&& $node = $PAGE->navigation->find($course->id, navigation_node::TYPE_COURSE)) {
             $node->make_active();
             $PAGE->navbar->includesettingsbase = true;
         }
@@ -112,7 +115,7 @@ if (!empty($CFG->usetags)) {
 }
 
 if ($user->id !== -1) {
-    $usercontext = get_context_instance(CONTEXT_USER, $user->id);
+    $usercontext = context_user::instance($user->id);
     $editoroptions = array(
         'maxfiles'   => EDITOR_UNLIMITED_FILES,
         'maxbytes'   => $CFG->maxbytes,
@@ -156,6 +159,7 @@ if ($usernew = $userform->get_data()) {
         unset($usernew->id);
         $usernew = file_postupdate_standard_editor($usernew, 'description', $editoroptions, null, 'user', 'profile', null);
         $usernew->mnethostid = $CFG->mnet_localhost_id; // always local user
+        $usernew->tenantid = $TENANT->id;
         $usernew->confirmed  = 1;
         $usernew->timecreated = time();
         $usernew->password = hash_internal_user_password($usernew->newpassword);
@@ -184,7 +188,7 @@ if ($usernew = $userform->get_data()) {
         $usercreated = false;
     }
 
-    $usercontext = get_context_instance(CONTEXT_USER, $usernew->id);
+    $usercontext = context_user::instance($usernew->id);
 
     //update preferences
     useredit_update_user_preference($usernew);

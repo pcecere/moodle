@@ -121,7 +121,7 @@ function make_log_url($module, $url) {
 
 function build_mnet_logs_array($hostid, $course, $user=0, $date=0, $order="l.time ASC", $limitfrom='', $limitnum='',
                    $modname="", $modid=0, $modaction="", $groupid=0) {
-    global $CFG, $DB;
+    global $CFG, $DB, $SITE;
 
     // It is assumed that $date is the GMT time of midnight for that day,
     // and so the next 86400 seconds worth of logs are printed.
@@ -156,7 +156,7 @@ function build_mnet_logs_array($hostid, $course, $user=0, $date=0, $order="l.tim
     $params['hostid'] = $hostid;
 
     // TODO: Is 1 really a magic number referring to the sitename?
-    if ($course != SITEID || $modid != 0) {
+    if ($course != $SITE->id || $modid != 0) {
         $where .= " AND l.course=:courseid";
         $params['courseid'] = $course;
     }
@@ -211,7 +211,7 @@ function build_mnet_logs_array($hostid, $course, $user=0, $date=0, $order="l.tim
 
 function build_logs_array($course, $user=0, $date=0, $order="l.time ASC", $limitfrom='', $limitnum='',
                    $modname="", $modid=0, $modaction="", $groupid=0) {
-    global $DB, $SESSION, $USER;
+    global $DB, $SESSION, $USER, $SITE;
     // It is assumed that $date is the GMT time of midnight for that day,
     // and so the next 86400 seconds worth of logs are printed.
 
@@ -240,7 +240,7 @@ function build_logs_array($course, $user=0, $date=0, $order="l.time ASC", $limit
     $joins = array();
     $params = array();
 
-    if ($course->id != SITEID || $modid != 0) {
+    if ($course->id != $SITE->id || $modid != 0) {
         $joins[] = "l.course = :courseid";
         $params['courseid'] = $course->id;
     }
@@ -303,7 +303,7 @@ function build_logs_array($course, $user=0, $date=0, $order="l.time ASC", $limit
 function print_log($course, $user=0, $date=0, $order="l.time ASC", $page=0, $perpage=100,
                    $url="", $modname="", $modid=0, $modaction="", $groupid=0) {
 
-    global $CFG, $DB, $OUTPUT;
+    global $CFG, $DB, $OUTPUT, $SITE;
 
     if (!$logs = build_logs_array($course, $user, $date, $order, $page*$perpage, $perpage,
                        $modname, $modid, $modaction, $groupid)) {
@@ -314,7 +314,7 @@ function print_log($course, $user=0, $date=0, $order="l.time ASC", $page=0, $per
 
     $courses = array();
 
-    if ($course->id == SITEID) {
+    if ($course->id == $SITE->id) {
         $courses[0] = '';
         if ($ccc = get_courses('all', 'c.id ASC', 'c.id,c.shortname')) {
             foreach ($ccc as $cc) {
@@ -351,7 +351,7 @@ function print_log($course, $user=0, $date=0, $order="l.time ASC", $page=0, $per
     );
     $table->data = array();
 
-    if ($course->id == SITEID) {
+    if ($course->id == $SITE->id) {
         array_unshift($table->align, 'left');
         array_unshift($table->head, get_string('course'));
     }
@@ -387,7 +387,7 @@ function print_log($course, $user=0, $date=0, $order="l.time ASC", $page=0, $per
         $brokenurl=($tl->strlen($log->url)==100 && $tl->substr($log->url,97)=='...');
 
         $row = array();
-        if ($course->id == SITEID) {
+        if ($course->id == $SITE->id) {
             if (empty($log->course)) {
                 $row[] = get_string('site');
             } else {
@@ -421,7 +421,7 @@ function print_log($course, $user=0, $date=0, $order="l.time ASC", $page=0, $per
 function print_mnet_log($hostid, $course, $user=0, $date=0, $order="l.time ASC", $page=0, $perpage=100,
                    $url="", $modname="", $modid=0, $modaction="", $groupid=0) {
 
-    global $CFG, $DB, $OUTPUT;
+    global $CFG, $DB, $OUTPUT, $SITE;
 
     if (!$logs = build_mnet_logs_array($hostid, $course, $user, $date, $order, $page*$perpage, $perpage,
                        $modname, $modid, $modaction, $groupid)) {
@@ -430,7 +430,7 @@ function print_mnet_log($hostid, $course, $user=0, $date=0, $order="l.time ASC",
         exit;
     }
 
-    if ($course->id == SITEID) {
+    if ($course->id == $SITE->id) {
         $courses[0] = '';
         if ($ccc = get_courses('all', 'c.id ASC', 'c.id,c.shortname,c.visible')) {
             foreach ($ccc as $cc) {
@@ -455,7 +455,7 @@ function print_mnet_log($hostid, $course, $user=0, $date=0, $order="l.time ASC",
 
     echo "<table class=\"logtable\" cellpadding=\"3\" cellspacing=\"0\">\n";
     echo "<tr>";
-    if ($course->id == SITEID) {
+    if ($course->id == $SITE->id) {
         echo "<th class=\"c0 header\">".get_string('course')."</th>\n";
     }
     echo "<th class=\"c1 header\">".get_string('time')."</th>\n";
@@ -495,8 +495,8 @@ function print_mnet_log($hostid, $course, $user=0, $date=0, $order="l.time ASC",
         $log->info = format_string($log->info);
 
         echo '<tr class="r'.$row.'">';
-        if ($course->id == SITEID) {
-            $courseshortname = format_string($courses[$log->course], true, array('context' => get_context_instance(CONTEXT_COURSE, SITEID)));
+        if ($course->id == $SITE->id) {
+            $courseshortname = format_string($courses[$log->course], true, array('context' => get_context_instance(CONTEXT_COURSE, $SITE->id)));
             echo "<td class=\"r$row c0\" >\n";
             echo "    <a href=\"{$CFG->wwwroot}/course/view.php?id={$log->course}\">".$courseshortname."</a>\n";
             echo "</td>\n";
@@ -525,7 +525,7 @@ function print_mnet_log($hostid, $course, $user=0, $date=0, $order="l.time ASC",
 
 function print_log_csv($course, $user, $date, $order='l.time DESC', $modname,
                         $modid, $modaction, $groupid) {
-    global $DB;
+    global $DB, $SITE;
 
     $text = get_string('course')."\t".get_string('time')."\t".get_string('ip_address')."\t".
             get_string('fullnameuser')."\t".get_string('action')."\t".get_string('info');
@@ -537,7 +537,7 @@ function print_log_csv($course, $user, $date, $order='l.time DESC', $modname,
 
     $courses = array();
 
-    if ($course->id == SITEID) {
+    if ($course->id == $SITE->id) {
         $courses[0] = '';
         if ($ccc = get_courses('all', 'c.id ASC', 'c.id,c.shortname')) {
             foreach ($ccc as $cc) {
@@ -604,7 +604,7 @@ function print_log_csv($course, $user, $date, $order='l.time DESC', $modname,
 function print_log_xls($course, $user, $date, $order='l.time DESC', $modname,
                         $modid, $modaction, $groupid) {
 
-    global $CFG, $DB;
+    global $CFG, $DB, $SITE;
 
     require_once("$CFG->libdir/excellib.class.php");
 
@@ -615,7 +615,7 @@ function print_log_xls($course, $user, $date, $order='l.time DESC', $modname,
 
     $courses = array();
 
-    if ($course->id == SITEID) {
+    if ($course->id == $SITE->id) {
         $courses[0] = '';
         if ($ccc = get_courses('all', 'c.id ASC', 'c.id,c.shortname')) {
             foreach ($ccc as $cc) {
@@ -717,7 +717,7 @@ function print_log_xls($course, $user, $date, $order='l.time DESC', $modname,
 function print_log_ods($course, $user, $date, $order='l.time DESC', $modname,
                         $modid, $modaction, $groupid) {
 
-    global $CFG, $DB;
+    global $CFG, $DB, $SITE;
 
     require_once("$CFG->libdir/odslib.class.php");
 
@@ -728,7 +728,7 @@ function print_log_ods($course, $user, $date, $order='l.time DESC', $modname,
 
     $courses = array();
 
-    if ($course->id == SITEID) {
+    if ($course->id == $SITE->id) {
         $courses[0] = '';
         if ($ccc = get_courses('all', 'c.id ASC', 'c.id,c.shortname')) {
             foreach ($ccc as $cc) {
@@ -1978,12 +1978,18 @@ function get_child_categories($parentid) {
 function make_categories_list(&$list, &$parents, $requiredcapability = '',
         $excludeid = 0, $category = NULL, $path = "") {
 
+    global $TENANT;
+
     // initialize the arrays if needed
     if (!is_array($list)) {
         $list = array();
     }
     if (!is_array($parents)) {
         $parents = array();
+    }
+
+    if (isset($category->tenantid) and $category->tenantid != $TENANT->id) {
+        throw new tenant_access_exception();
     }
 
     if (empty($category)) {
@@ -2047,7 +2053,7 @@ function make_categories_list(&$list, &$parents, $requiredcapability = '',
  * @param int $depth
  */
 function get_course_category_tree($id = 0, $depth = 0) {
-    global $DB, $CFG;
+    global $DB, $CFG, $SITE;
     $viewhiddencats = has_capability('moodle/category:viewhiddencategories', get_context_instance(CONTEXT_SYSTEM));
     $categories = get_child_categories($id);
     $categoryids = array();
@@ -2084,7 +2090,7 @@ function get_course_category_tree($id = 0, $depth = 0) {
     if ($courses = $DB->get_records_sql($sql, $catparams)) {
         // loop throught them
         foreach ($courses as $course) {
-            if ($course->id == SITEID) {
+            if ($course->id == $SITE->id) {
                 continue;
             }
             context_instance_preload($course);
@@ -2414,7 +2420,7 @@ function print_courses($category) {
  * @param string $highlightterms (optional) some search terms that should be highlighted in the display.
  */
 function print_course($course, $highlightterms = '') {
-    global $CFG, $USER, $DB, $OUTPUT;
+    global $CFG, $USER, $DB, $OUTPUT, $SITE;
 
     $context = get_context_instance(CONTEXT_COURSE, $course->id);
 
@@ -2479,7 +2485,7 @@ function print_course($course, $highlightterms = '') {
 
             $fullname = fullname($ra, $canviewfullnames);
             $namesarray[$ra->id] = format_string($ra->rolename).': '.
-                html_writer::link(new moodle_url('/user/view.php', array('id'=>$ra->id, 'course'=>SITEID)), $fullname);
+                html_writer::link(new moodle_url('/user/view.php', array('id'=>$ra->id, 'course'=>$SITE->id)), $fullname);
         }
 
         if (!empty($namesarray)) {
@@ -2517,7 +2523,7 @@ function print_course($course, $highlightterms = '') {
  * Over time this can include all sorts of information
  */
 function print_my_moodle() {
-    global $USER, $CFG, $DB, $OUTPUT;
+    global $USER, $CFG, $DB, $OUTPUT, $SITE;
 
     if (!isloggedin() or isguestuser()) {
         print_error('nopermissions', '', '', 'See My Moodle');
@@ -2536,7 +2542,7 @@ function print_my_moodle() {
         if (!empty($courses)) {
             echo '<ul class="unlist">';
             foreach ($courses as $course) {
-                if ($course->id == SITEID) {
+                if ($course->id == $SITE->id) {
                     continue;
                 }
                 echo '<li>';
@@ -3740,10 +3746,10 @@ function save_local_role_names($courseid, $data) {
  * @return object new course instance
  */
 function create_course($data, $editoroptions = NULL) {
-    global $CFG, $DB;
+    global $CFG, $DB, $TENANT, $SITE;
 
     //check the categoryid - must be given for all new courses
-    $category = $DB->get_record('course_categories', array('id'=>$data->category), '*', MUST_EXIST);
+    $category = $DB->get_record('course_categories', array('id'=>$data->category, 'tenantid'=>$TENANT->id), '*', MUST_EXIST);
 
     //check if the shortname already exist
     if (!empty($data->shortname)) {
@@ -3759,6 +3765,7 @@ function create_course($data, $editoroptions = NULL) {
         }
     }
 
+    $data->tenantid     = $TENANT->id;
     $data->timecreated  = time();
     $data->timemodified = $data->timecreated;
 
@@ -3820,7 +3827,7 @@ function create_course($data, $editoroptions = NULL) {
     // set up enrolments
     enrol_course_updated(true, $course, $data);
 
-    add_to_log(SITEID, 'course', 'new', 'view.php?id='.$course->id, $data->fullname.' (ID '.$course->id.')');
+    add_to_log($SITE->id, 'course', 'new', 'view.php?id='.$course->id, $data->fullname.' (ID '.$course->id.')');
 
     // Trigger events
     events_trigger('course_created', $course);
@@ -3839,11 +3846,11 @@ function create_course($data, $editoroptions = NULL) {
  * @return void
  */
 function update_course($data, $editoroptions = NULL) {
-    global $CFG, $DB;
+    global $CFG, $DB, $TENANT;
 
     $data->timemodified = time();
 
-    $oldcourse = $DB->get_record('course', array('id'=>$data->id), '*', MUST_EXIST);
+    $oldcourse = $DB->get_record('course', array('id'=>$data->id, 'tenantid'=>$TENANT->id), '*', MUST_EXIST);
     $context   = get_context_instance(CONTEXT_COURSE, $oldcourse->id);
 
     if ($editoroptions) {
@@ -3866,7 +3873,7 @@ function update_course($data, $editoroptions = NULL) {
         $data->visibleold = $data->visible;
     } else {
         if ($movecat) {
-            $newcategory = $DB->get_record('course_categories', array('id'=>$data->category));
+            $newcategory = $DB->get_record('course_categories', array('id'=>$data->category, 'tenantid'=>$TENANT->id), '*', MUST_EXIST);
             if (empty($newcategory->visible)) {
                 // make sure when moving into hidden category the course is hidden automatically
                 $data->visible = 0;
@@ -4039,12 +4046,13 @@ class course_request {
      * @return course_request The newly created course request
      */
     public static function create($data) {
-        global $USER, $DB, $CFG;
+        global $USER, $DB, $CFG, $TENANT;
         $data->requester = $USER->id;
 
         // Summary is a required field so copy the text over
         $data->summary       = $data->summary_editor['text'];
         $data->summaryformat = $data->summary_editor['format'];
+        $data->tenantid      = $TENANT->id;
 
         $data->id = $DB->insert_record('course_request', $data);
 
@@ -4089,7 +4097,7 @@ class course_request {
      *                      or the course_request id to load
      */
     public function __construct($properties) {
-        global $DB;
+        global $DB, $TENANT;
         if (empty($properties->id)) {
             if (empty($properties)) {
                 throw new coding_exception('You must provide a course request id when creating a course_request object');
@@ -4100,7 +4108,7 @@ class course_request {
             unset($id);
         }
         if (empty($properties->requester)) {
-            if (!($this->properties = $DB->get_record('course_request', array('id' => $properties->id)))) {
+            if (!($this->properties = $DB->get_record('course_request', array('id' => $properties->id, 'tenantid'=>$TENANT->id)))) {
                 print_error('unknowncourserequest');
             }
         } else {
@@ -4304,9 +4312,11 @@ class course_request {
  * @param stdClass $currentcontext Current context of block
  */
 function course_page_type_list($pagetype, $parentcontext, $currentcontext) {
+    global $SITE;
+
     // if above course context ,display all course fomats
     list($currentcontext, $course, $cm) = get_context_info_array($currentcontext->id);
-    if ($course->id == SITEID) {
+    if ($course->id == $SITE->id) {
         return array('*'=>get_string('page-x', 'pagetype'));
     } else {
         return array('*'=>get_string('page-x', 'pagetype'),

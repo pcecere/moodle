@@ -116,8 +116,8 @@ $feedback_complete_cap = false;
 
 if (isset($CFG->feedback_allowfullanonymous)
             AND $CFG->feedback_allowfullanonymous
-            AND $course->id == SITEID
-            AND (!$courseid OR $courseid == SITEID)
+            AND $course->id == $SITE->id
+            AND (!$courseid OR $courseid == $SITE->id)
             AND $feedback->anonymous == FEEDBACK_ANONYMOUS_YES ) {
     $feedback_complete_cap = true;
 }
@@ -126,7 +126,7 @@ if (isset($CFG->feedback_allowfullanonymous)
 if (isset($CFG->feedback_allowfullanonymous)
                 AND $CFG->feedback_allowfullanonymous
                 AND $feedback->anonymous == FEEDBACK_ANONYMOUS_YES
-                AND $course->id == SITEID ) {
+                AND $course->id == $SITE->id ) {
     $feedback_complete_cap = true;
 }
 if ($feedback->anonymous != FEEDBACK_ANONYMOUS_YES) {
@@ -137,13 +137,13 @@ if ($feedback->anonymous != FEEDBACK_ANONYMOUS_YES) {
 // there used to be a sesskey test - this could not work - sorry
 
 //check whether the feedback is located and! started from the mainsite
-if ($course->id == SITEID AND !$courseid) {
-    $courseid = SITEID;
+if ($course->id == $SITE->id AND !$courseid) {
+    $courseid = $SITE->id;
 }
 
 require_course_login($course);
 
-if ($courseid AND $courseid != SITEID) {
+if ($courseid AND $courseid != $SITE->id) {
     $course2 = $DB->get_record('course', array('id'=>$courseid));
     require_course_login($course2); //this overwrites the object $course :-(
     $course = $DB->get_record("course", array("id"=>$cm->course)); // the workaround
@@ -172,7 +172,7 @@ echo $OUTPUT->header();
 //hidden feedbacks except feedbacks on mainsite are only accessible with related capabilities
 if ((empty($cm->visible) AND
         !has_capability('moodle/course:viewhiddenactivities', $context)) AND
-        $course->id != SITEID) {
+        $course->id != $SITE->id) {
     notice(get_string("activityiscurrentlyhidden"));
 }
 
@@ -348,13 +348,13 @@ if ($feedback_can_submit) {
             $url = feedback_encode_target_url($feedback->site_after_submit);
         } else {
             if ($courseid) {
-                if ($courseid == SITEID) {
+                if ($courseid == $SITE->id) {
                     $url = $CFG->wwwroot;
                 } else {
                     $url = $CFG->wwwroot.'/course/view.php?id='.$courseid;
                 }
             } else {
-                if ($course->id == SITEID) {
+                if ($course->id == $SITE->id) {
                     $url = $CFG->wwwroot;
                 } else {
                     $url = $CFG->wwwroot.'/course/view.php?id='.$course->id;
@@ -504,7 +504,7 @@ if ($feedback_can_submit) {
             if ($courseid) {
                 $action = 'action="'.$CFG->wwwroot.'/course/view.php?id='.$courseid.'"';
             } else {
-                if ($course->id == SITEID) {
+                if ($course->id == $SITE->id) {
                     $action = 'action="'.$CFG->wwwroot.'"';
                 } else {
                     $action = 'action="'.$CFG->wwwroot.'/course/view.php?id='.$course->id.'"';

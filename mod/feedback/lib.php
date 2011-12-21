@@ -149,7 +149,7 @@ function feedback_update_instance($feedback) {
  * @return bool false if file not found, does not return if found - justsend the file
  */
 function feedback_pluginfile($course, $cm, $context, $filearea, $args, $forcedownload) {
-    global $CFG, $DB;
+    global $CFG, $DB, $SITE;
 
     $itemid = (int)array_shift($args);
 
@@ -180,7 +180,7 @@ function feedback_pluginfile($course, $cm, $context, $filearea, $args, $forcedow
         //so the file can be loaded too.
         if (isset($CFG->feedback_allowfullanonymous)
                     AND $CFG->feedback_allowfullanonymous
-                    AND $course->id == SITEID
+                    AND $course->id == $SITE->id
                     AND $feedback->anonymous == FEEDBACK_ANONYMOUS_YES ) {
             $canload = true;
         }
@@ -2651,7 +2651,7 @@ function feedback_is_feedback_in_sitecourse_map($feedbackid) {
  * @return array the feedback-records
  */
 function feedback_get_feedbacks_from_sitecourse_map($courseid) {
-    global $DB;
+    global $DB, $SITE;
 
     //first get all feedbacks listed in sitecourse_map with named courseid
     $sql = "SELECT f.id AS id,
@@ -2661,7 +2661,7 @@ function feedback_get_feedbacks_from_sitecourse_map($courseid) {
                    f.timeclose AS timeclose
             FROM {feedback} f, {course_modules} cm, {feedback_sitecourse_map} sm, {modules} m
             WHERE f.id = cm.instance
-                   AND f.course = '".SITEID."'
+                   AND f.course = '".$SITE->id."'
                    AND m.id = cm.module
                    AND m.name = 'feedback'
                    AND sm.courseid = ?
@@ -2680,7 +2680,7 @@ function feedback_get_feedbacks_from_sitecourse_map($courseid) {
                    f.timeclose AS timeclose
             FROM {feedback} f, {course_modules} cm, {modules} m
             WHERE f.id = cm.instance
-                   AND f.course = '".SITEID."'
+                   AND f.course = '".$SITE->id."'
                    AND m.id = cm.module
                    AND m.name = 'feedback'";
     if (!$allfeedbacks = $DB->get_records_sql($sql)) {
@@ -2992,7 +2992,7 @@ function feedback_encode_target_url($url) {
 function feedback_extend_settings_navigation(settings_navigation $settings,
                                              navigation_node $feedbacknode) {
 
-    global $PAGE, $DB;
+    global $PAGE, $DB, $SITE;
 
     if (!$context = get_context_instance(CONTEXT_MODULE, $PAGE->cm->id)) {
         print_error('badcontext');
@@ -3023,7 +3023,7 @@ function feedback_extend_settings_navigation(settings_navigation $settings,
 
     if (has_capability('mod/feedback:viewreports', $context)) {
         $feedback = $DB->get_record('feedback', array('id'=>$PAGE->cm->instance));
-        if ($feedback->course == SITEID) {
+        if ($feedback->course == $SITE->id) {
             $feedbacknode->add(get_string('analysis', 'feedback'),
                     new moodle_url('/mod/feedback/analysis_course.php',
                                     array('id' => $PAGE->cm->id,

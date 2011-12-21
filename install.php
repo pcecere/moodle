@@ -220,7 +220,6 @@ $COURSE = new stdClass();
 $COURSE->id = 0;
 
 $SITE = $COURSE;
-define('SITEID', 0);
 
 $hint_dataroot = '';
 $hint_admindir = '';

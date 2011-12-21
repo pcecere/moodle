@@ -15,7 +15,7 @@ class block_feedback extends block_base {
     }
 
     function get_content() {
-        global $CFG, $OUTPUT;
+        global $CFG, $OUTPUT, $SITE;
 
         if ($this->content !== NULL) {
             return $this->content;
@@ -30,7 +30,7 @@ class block_feedback extends block_base {
 
         $courseid = $this->page->course->id;
         if ($courseid <= 0) {
-            $courseid = SITEID;
+            $courseid = $SITE->id;
         }
 
         $this->content = new stdClass;
@@ -39,7 +39,7 @@ class block_feedback extends block_base {
 
 
         if (empty($this->instance->pageid)) {
-            $this->instance->pageid = SITEID;
+            $this->instance->pageid = $SITE->id;
         }
 
         if ($feedbacks = feedback_get_feedbacks_from_sitecourse_map($courseid)) {

@@ -126,7 +126,7 @@ class block_navigation extends block_base {
      * Gets the content for this block by grabbing it from $this->page
      */
     function get_content() {
-        global $CFG, $OUTPUT;
+        global $CFG, $OUTPUT, $SITE;
         // First check if we have already generated, don't waste cycles
         if ($this->contentgenerated === true) {
             return $this->content;
@@ -182,7 +182,7 @@ class block_navigation extends block_base {
         $navigation->find_expandable($expandable);
         if ($expansionlimit) {
             foreach ($expandable as $key=>$node) {
-                if ($node['type'] > $expansionlimit && !($expansionlimit == navigation_node::TYPE_COURSE && $node['type'] == $expansionlimit && $node['branchid'] == SITEID)) {
+                if ($node['type'] > $expansionlimit && !($expansionlimit == navigation_node::TYPE_COURSE && $node['type'] == $expansionlimit && $node['branchid'] == $SITE->id)) {
                     unset($expandable[$key]);
                 }
             }

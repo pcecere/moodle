@@ -50,7 +50,7 @@ $course = $DB->get_record_sql($sql, $params, MUST_EXIST);
 context_instance_preload($course);
 
 // Make sure its not the front page course
-if ($course->id == SITEID) {
+if ($course->id == $SITE->id) {
     redirect(new moodle_url('/'));
 }
 

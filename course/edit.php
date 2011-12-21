@@ -36,12 +36,12 @@ $PAGE->set_url('/course/edit.php');
 
 // basic access control checks
 if ($id) { // editing course
-    if ($id == SITEID){
+    if ($id == $SITE->id){
         // don't allow editing of  'site course' using this from
         print_error('cannoteditsiteform');
     }
 
-    $course = $DB->get_record('course', array('id'=>$id), '*', MUST_EXIST);
+    $course = $DB->get_record('course', array('id'=>$id, 'tenantid'=>$TENANT->id), '*', MUST_EXIST);
     require_login($course);
     $category = $DB->get_record('course_categories', array('id'=>$course->category), '*', MUST_EXIST);
     $coursecontext = get_context_instance(CONTEXT_COURSE, $course->id);
@@ -51,7 +51,7 @@ if ($id) { // editing course
 } else if ($categoryid) { // creating new course in this category
     $course = null;
     require_login();
-    $category = $DB->get_record('course_categories', array('id'=>$categoryid), '*', MUST_EXIST);
+    $category = $DB->get_record('course_categories', array('id'=>$categoryid, 'tenantid'=>$TENANT->id), '*', MUST_EXIST);
     $catcontext = get_context_instance(CONTEXT_COURSECAT, $category->id);
     require_capability('moodle/course:create', $catcontext);
     $PAGE->url->param('category',$categoryid);

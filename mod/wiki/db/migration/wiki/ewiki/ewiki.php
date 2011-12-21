@@ -1162,7 +1162,7 @@ function ewiki_page_search($id, &$data, $action) {
 function ewiki_page_info($id, &$data, $action) {
 
    global $ewiki_plugins, $ewiki_config, $ewiki_links;
-   global $CFG, $COURSE, $DB, $OUTPUT;  // MOODLE HACK
+   global $CFG, $COURSE, $DB, $OUTPUT, $SITE;  // MOODLE HACK
 
    $pnum = optional_param(EWIKI_UP_PAGENUM, 0, PARAM_INT);
    $pend = optional_param(EWIKI_UP_PAGEEND, 0, PARAM_INT);
@@ -1284,7 +1284,7 @@ function ewiki_page_info($id, &$data, $action) {
              $i = 'author';
              if ($user = $DB->get_record('user', array('id'=>$value))) {
                  if (!isset($COURSE->id)) {
-                     $COURSE->id = SITEID;
+                     $COURSE->id = $SITE->id;
                  }
                  $picture = $OUTPUT->user_picture($user);
                  $value = $picture . html_writer::link("$CFG->wwwroot/user/view.php?id=$user->id&course=$COURSE->id", fullname($user));

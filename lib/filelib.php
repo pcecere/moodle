@@ -3150,7 +3150,7 @@ class filetype_parser {
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 function file_pluginfile($relativepath, $forcedownload) {
-    global $DB, $CFG, $USER;
+    global $DB, $CFG, $USER, $SITE, $TENANT;
     // relative path must start with '/'
     if (!$relativepath) {
         print_error('invalidargorconf');
@@ -3170,6 +3170,10 @@ function file_pluginfile($relativepath, $forcedownload) {
     $filearea  = clean_param(array_shift($args), PARAM_AREA);
 
     list($context, $course, $cm) = get_context_info_array($contextid);
+
+    if ($TENANT->id != $context->tenantid) {
+        send_file_not_found();
+    }
 
     $fs = get_file_storage();
 
@@ -3248,7 +3252,7 @@ function file_pluginfile($relativepath, $forcedownload) {
             //TODO: nobody implemented this yet in grade edit form!!
             send_file_not_found();
 
-            if ($CFG->forcelogin || $course->id != SITEID) {
+            if ($CFG->forcelogin || $course->id != $SITE->id) {
                 require_login($course);
             }
 
@@ -3346,7 +3350,7 @@ function file_pluginfile($relativepath, $forcedownload) {
 
             // Respect forcelogin and require login unless this is the site.... it probably
             // should NEVER be the site
-            if ($CFG->forcelogin || $course->id != SITEID) {
+            if ($CFG->forcelogin || $course->id != $SITE->id) {
                 require_login($course);
             }
 
@@ -3601,7 +3605,7 @@ function file_pluginfile($relativepath, $forcedownload) {
         } else if ($filearea === 'section') {
             if ($CFG->forcelogin) {
                 require_login($course);
-            } else if ($course->id != SITEID) {
+            } else if ($course->id != $SITE->id) {
                 require_login($course);
             }
 

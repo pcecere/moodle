@@ -3499,7 +3499,7 @@ function assignment_count_real_submissions($cm, $groupid=0) {
  */
 function assignment_get_all_submissions($assignment, $sort="", $dir="DESC") {
 /// Return all assignment submissions by ENROLLED students (even empty)
-    global $CFG, $DB;
+    global $CFG, $DB, $SITE;
 
     if ($sort == "lastname" or $sort == "firstname") {
         $sort = "u.$sort $dir";
@@ -3511,7 +3511,7 @@ function assignment_get_all_submissions($assignment, $sort="", $dir="DESC") {
 
     /* not sure this is needed at all since assignment already has a course define, so this join?
     $select = "s.course = '$assignment->course' AND";
-    if ($assignment->course == SITEID) {
+    if ($assignment->course == $SITE->id) {
         $select = '';
     }*/
 

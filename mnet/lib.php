@@ -436,14 +436,14 @@ function mnet_generate_keypair($dn = null, $days=28) {
 
 
 function mnet_update_sso_access_control($username, $mnet_host_id, $accessctrl) {
-    global $DB;
+    global $DB, $SITE;
 
     $mnethost = $DB->get_record('mnet_host', array('id'=>$mnet_host_id));
     if ($aclrecord = $DB->get_record('mnet_sso_access_control', array('username'=>$username, 'mnet_host_id'=>$mnet_host_id))) {
         // update
         $aclrecord->accessctrl = $accessctrl;
         $DB->update_record('mnet_sso_access_control', $aclrecord);
-        add_to_log(SITEID, 'admin/mnet', 'update', 'admin/mnet/access_control.php',
+        add_to_log($SITE->id, 'admin/mnet', 'update', 'admin/mnet/access_control.php',
                 "SSO ACL: $accessctrl user '$username' from {$mnethost->name}");
     } else {
         // insert
@@ -451,7 +451,7 @@ function mnet_update_sso_access_control($username, $mnet_host_id, $accessctrl) {
         $aclrecord->accessctrl = $accessctrl;
         $aclrecord->mnet_host_id = $mnet_host_id;
         $id = $DB->insert_record('mnet_sso_access_control', $aclrecord);
-        add_to_log(SITEID, 'admin/mnet', 'add', 'admin/mnet/access_control.php',
+        add_to_log($SITE->id, 'admin/mnet', 'add', 'admin/mnet/access_control.php',
                 "SSO ACL: $accessctrl user '$username' from {$mnethost->name}");
     }
     return true;

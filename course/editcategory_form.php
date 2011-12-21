@@ -8,14 +8,19 @@ class editcategory_form extends moodleform {
 
     // form definition
     function definition() {
-        global $CFG, $DB;
+        global $CFG, $DB, $TENANT;
         $mform =& $this->_form;
         $category = $this->_customdata['category'];
         $editoroptions = $this->_customdata['editoroptions'];
 
+        if ($TENANT->id) {
+            $topcontext = context_tenant::instance($TENANT->id);
+        } else {
+            $topcontext = context_system::instance();
+        }
         // get list of categories to use as parents, with site as the first one
         $options = array();
-        if (has_capability('moodle/category:manage', get_system_context()) || $category->parent == 0) {
+        if (has_capability('moodle/category:manage', $topcontext) || $category->parent == 0) {
             $options[0] = get_string('top');
         }
         $parents = array();

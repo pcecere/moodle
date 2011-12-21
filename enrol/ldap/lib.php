@@ -41,8 +41,13 @@ class enrol_ldap_plugin extends enrol_plugin {
      * real settings the admin defined.
      */
     public function __construct() {
-        global $CFG;
+        global $CFG, $TENANT;
         require_once($CFG->libdir.'/ldaplib.php');
+
+        if ($TENANT->id) {
+            // TODO: prevent saving errors
+            return;
+        }
 
         // Do our own stuff to fix the config (it's easier to do it
         // here than using the admin settings infrastructure). We

@@ -35,18 +35,18 @@ $searchquery  = optional_param('search', '', PARAM_RAW);
 require_login();
 
 if ($contextid) {
-    $context = get_context_instance_by_id($contextid, MUST_EXIST);
+    $context = context::instance_by_id($contextid);
 } else {
-    $context = get_context_instance(CONTEXT_SYSTEM);
+    $context = context_helper::top_context();
 }
 
-if ($context->contextlevel != CONTEXT_COURSECAT and $context->contextlevel != CONTEXT_SYSTEM) {
+if ($context->contextlevel != CONTEXT_COURSECAT and $context->contextlevel != CONTEXT_TENANT and $context->contextlevel != CONTEXT_SYSTEM) {
     print_error('invalidcontext');
 }
 
 $category = null;
 if ($context->contextlevel == CONTEXT_COURSECAT) {
-    $category = $DB->get_record('course_categories', array('id'=>$context->instanceid), '*', MUST_EXIST);
+    $category = $DB->get_record('course_categories', array('id'=>$context->instanceid, 'tenantid'=>$TENANT->id), '*', MUST_EXIST);
 }
 
 $manager = has_capability('moodle/cohort:manage', $context);
@@ -69,7 +69,7 @@ if ($category) {
 
 echo $OUTPUT->header();
 
-echo $OUTPUT->heading(get_string('cohortsin', 'cohort', print_context_name($context)));
+echo $OUTPUT->heading(get_string('cohortsin', 'cohort', $context->get_context_name()));
 
 // add search form
 $search  = html_writer::start_tag('form', array('id'=>'searchcohortquery', 'method'=>'get'));

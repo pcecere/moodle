@@ -55,7 +55,7 @@ require_login();
 
 $action = optional_param('action', 'new', PARAM_ALPHA);
 $eventid = optional_param('id', 0, PARAM_INT);
-$courseid = optional_param('courseid', SITEID, PARAM_INT);
+$courseid = optional_param('courseid', $SITE->id, PARAM_INT);
 $courseid = optional_param('course', $courseid, PARAM_INT);
 $cal_y = optional_param('cal_y', 0, PARAM_INT);
 $cal_m = optional_param('cal_m', 0, PARAM_INT);
@@ -65,7 +65,7 @@ $url = new moodle_url('/calendar/event.php', array('action' => $action));
 if ($eventid != 0) {
     $url->param('id', $eventid);
 }
-if ($courseid != SITEID) {
+if ($courseid != $SITE->id) {
     $url->param('course', $courseid);
 }
 if ($cal_y !== 0) {
@@ -80,7 +80,7 @@ if ($cal_d !== 0) {
 $PAGE->set_url($url);
 $PAGE->set_pagelayout('standard');
 
-if ($courseid != SITEID && !empty($courseid)) {
+if ($courseid != $SITE->id && !empty($courseid)) {
     $course = $DB->get_record('course', array('id' => $courseid), '*', MUST_EXIST);
     $courses = array($course->id => $course);
     $issite = false;
@@ -173,7 +173,7 @@ if ($data) {
         'cal_y' => date('y', $event->timestart),
     );
     $eventurl = new moodle_url('/calendar/view.php', $params);
-    if (!empty($event->courseid) && $event->courseid != SITEID) {
+    if (!empty($event->courseid) && $event->courseid != $SITE->id) {
         $eventurl->param('course', $event->courseid);
     }
     $eventurl->set_anchor('event_'.$event->id);

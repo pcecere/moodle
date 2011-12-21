@@ -732,11 +732,11 @@ class flexible_table {
      *
      */
     function col_fullname($row) {
-        global $COURSE, $CFG;
+        global $COURSE, $CFG, $SITE;
 
         if (!$this->download) {
             $profileurl = new moodle_url('/user/profile.php', array('id' => $row->{$this->useridfield}));
-            if ($COURSE->id != SITEID) {
+            if ($COURSE->id != $SITE->id) {
                 $profileurl->param('course', $COURSE->id);
             }
             return html_writer::link($profileurl, fullname($row));

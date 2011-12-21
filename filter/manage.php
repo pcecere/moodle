@@ -48,7 +48,7 @@ if (!in_array($context->contextlevel, array(CONTEXT_COURSECAT, CONTEXT_COURSE, C
     print_error('cannotcustomisefiltersblockuser', 'error');
 }
 
-$isfrontpage = ($context->contextlevel == CONTEXT_COURSE && $context->instanceid == SITEID);
+$isfrontpage = ($context->contextlevel == CONTEXT_COURSE && $context->instanceid == $SITE->id);
 
 $contextname = print_context_name($context);
 

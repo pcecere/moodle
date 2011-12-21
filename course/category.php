@@ -128,12 +128,12 @@
             $swapcourse = NULL;
 
             if (!empty($moveup)) {
-                if ($movecourse = $DB->get_record('course', array('id' => $moveup))) {
-                    $swapcourse = $DB->get_record('course', array('sortorder' => $movecourse->sortorder - 1));
+                if ($movecourse = $DB->get_record('course', array('id' => $moveup, 'category' => $category->id))) {
+                    $swapcourse = $DB->get_record('course', array('sortorder' => $movecourse->sortorder - 1, 'category' => $category->id));
                 }
             } else {
-                if ($movecourse = $DB->get_record('course', array('id' => $movedown))) {
-                    $swapcourse = $DB->get_record('course', array('sortorder' => $movecourse->sortorder + 1));
+                if ($movecourse = $DB->get_record('course', array('id' => $movedown, 'category' => $category->id))) {
+                    $swapcourse = $DB->get_record('course', array('sortorder' => $movecourse->sortorder + 1, 'category' => $category->id));
                 }
             }
             if ($swapcourse and $movecourse) {
@@ -149,7 +149,7 @@
     } // End of editing stuff
 
     // Print headings
-    $numcategories = $DB->count_records('course_categories');
+    $numcategories = $DB->count_records('course_categories', array('tenantid'=>$TENANT->id));
 
     $stradministration = get_string('administration');
     $strcategories = get_string('categories');

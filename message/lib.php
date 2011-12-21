@@ -106,7 +106,7 @@ if (!isset($CFG->message_offline_time)) {
  * @return void
  */
 function message_print_contact_selector($countunreadtotal, $viewing, $user1, $user2, $blockedusers, $onlinecontacts, $offlinecontacts, $strangers, $showcontactactionlinks, $page=0) {
-    global $PAGE;
+    global $PAGE, $SITE;
 
     echo html_writer::start_tag('div', array('class' => 'contactselector mdl-align'));
 
@@ -147,7 +147,7 @@ function message_print_contact_selector($countunreadtotal, $viewing, $user1, $us
             message_print_participants($coursecontexts[$courseidtoshow], $courseidtoshow, $PAGE->url, $showcontactactionlinks, null, $page, $user2);
         } else {
             //shouldn't get here. User trying to access a course they're not in perhaps.
-            add_to_log(SITEID, 'message', 'view', 'index.php', $viewing);
+            add_to_log($SITE->id, 'message', 'view', 'index.php', $viewing);
         }
     }
 
@@ -855,7 +855,7 @@ function message_print_recent_notifications($user=null) {
  * @return void
  */
 function message_print_recent_messages_table($messages, $user=null, $showotheruser=true, $showicontext=false) {
-    global $OUTPUT;
+    global $OUTPUT, $SITE;
     static $dateformat;
 
     if (empty($dateformat)) {
@@ -890,7 +890,7 @@ function message_print_recent_messages_table($messages, $user=null, $showotherus
             echo html_writer::start_tag('span', array('class' => 'otheruser'));
 
             echo html_writer::start_tag('span', array('class' => 'pix'));
-            echo $OUTPUT->user_picture($message, array('size' => 20, 'courseid' => SITEID));
+            echo $OUTPUT->user_picture($message, array('size' => 20, 'courseid' => $SITE->id));
             echo html_writer::end_tag('span');
 
             echo html_writer::start_tag('span', array('class' => 'contact'));
@@ -1007,7 +1007,7 @@ function message_get_contact($contactid) {
  * @return void
  */
 function message_print_search_results($frm, $showicontext=false, $currentuser=null) {
-    global $USER, $DB, $OUTPUT;
+    global $USER, $DB, $OUTPUT, $SITE;
 
     if (empty($currentuser)) {
         $currentuser = $USER;
@@ -1036,7 +1036,7 @@ function message_print_search_results($frm, $showicontext=false, $currentuser=nu
                 }
             }
         } else {
-            $users = message_search_users(SITEID, $personsearchstring);
+            $users = message_search_users($SITE->id, $personsearchstring);
         }
 
         if (!empty($users)) {
@@ -1070,7 +1070,7 @@ function message_print_search_results($frm, $showicontext=false, $currentuser=nu
                 echo html_writer::start_tag('tr');
 
                 echo html_writer::start_tag('td', array('class' => 'pix'));
-                echo $OUTPUT->user_picture($user, array('size' => 20, 'courseid' => SITEID));
+                echo $OUTPUT->user_picture($user, array('size' => 20, 'courseid' => $SITE->id));
                 echo html_writer::end_tag('td');
 
                 echo html_writer::start_tag('td',array('class' => 'contact'));
@@ -1131,7 +1131,7 @@ function message_print_search_results($frm, $showicontext=false, $currentuser=nu
                 $fromme = true;
                 break;
             case 'allusers':
-                $courseid = SITEID;
+                $courseid = $SITE->id;
                 break;
             case 'courseusers':
                 $courseid = $frm->courseid;
@@ -1281,12 +1281,12 @@ function message_print_search_results($frm, $showicontext=false, $currentuser=nu
  * @return void
  */
 function message_print_user ($user=false, $iscontact=false, $isblocked=false, $includeicontext=false) {
-    global $USER, $OUTPUT;
+    global $USER, $OUTPUT, $SITE;
 
     if ($user === false) {
-        echo $OUTPUT->user_picture($USER, array('size' => 20, 'courseid' => SITEID));
+        echo $OUTPUT->user_picture($USER, array('size' => 20, 'courseid' => $SITE->id));
     } else {
-        echo $OUTPUT->user_picture($user, array('size' => 20, 'courseid' => SITEID));
+        echo $OUTPUT->user_picture($user, array('size' => 20, 'courseid' => $SITE->id));
         echo '&nbsp;';
 
         $return = false;
@@ -1469,7 +1469,7 @@ function message_history_link($userid1, $userid2, $return=false, $keywords='', $
  * @return array  An array of {@link $USER} records.
  */
 function message_search_users($courseid, $searchtext, $sort='', $exceptions='') {
-    global $CFG, $USER, $DB;
+    global $CFG, $USER, $DB, $SITE;
 
     $fullname = $DB->sql_fullname();
 
@@ -1486,7 +1486,7 @@ function message_search_users($courseid, $searchtext, $sort='', $exceptions='') 
     }
 
     $ufields = user_picture::fields('u');
-    if (!$courseid or $courseid == SITEID) {
+    if (!$courseid or $courseid == $SITE->id) {
         $params = array($USER->id, "%$searchtext%");
         return $DB->get_records_sql("SELECT $ufields, mc.id as contactlistid, mc.blocked
                                        FROM {user} u
@@ -1524,7 +1524,7 @@ function message_search_users($courseid, $searchtext, $sort='', $exceptions='') 
  * @param array $searchterms an array of search terms (strings)
  * @param bool $fromme include messages from the user?
  * @param bool $tome include messages to the user?
- * @param mixed $courseid SITEID for admins searching all messages. Other behaviour not yet implemented
+ * @param mixed $courseid $SITE->id for admins searching all messages. Other behaviour not yet implemented
  * @param int $userid the user ID of the current user
  * @return mixed An array of messages or false if no matching messages were found
  */
@@ -1532,7 +1532,7 @@ function message_search($searchterms, $fromme=true, $tome=true, $courseid='none'
 /// Returns a list of posts found using an array of search terms
 /// eg   word  +word -word
 ///
-    global $CFG, $USER, $DB;
+    global $CFG, $USER, $DB, $SITE;
 
     /// If no userid sent then assume current user
     if ($userid == 0) $userid = $USER->id;
@@ -1599,7 +1599,7 @@ function message_search($searchterms, $fromme=true, $tome=true, $courseid='none'
     }
 
     /// There are several possibilities
-    /// 1. courseid = SITEID : The admin is searching messages by all users
+    /// 1. courseid = $SITE->id : The admin is searching messages by all users
     /// 2. courseid = ??     : A teacher is searching messages by users in
     ///                        one of their courses - currently disabled
     /// 3. courseid = none   : User is searching their own messages;
@@ -1607,7 +1607,7 @@ function message_search($searchterms, $fromme=true, $tome=true, $courseid='none'
     ///    b.  Messages to user
     ///    c.  Messages to and from user
 
-    if ($courseid == SITEID) { /// admin is searching all messages
+    if ($courseid == $SITE->id) { /// admin is searching all messages
         $m_read   = $DB->get_records_sql("SELECT m.id, m.useridto, m.useridfrom, m.fullmessage, m.timecreated
                                             FROM {message_read} m
                                            WHERE $searchcond", $params, 0, MESSAGE_SEARCH_MAX_RESULTS);
@@ -1831,14 +1831,14 @@ function message_get_history($user1, $user2, $limitnum=0, $viewingnewmessages=fa
  * @param bool $viewingnewmessages are we currently viewing new messages?
  */
 function message_print_message_history($user1,$user2,$search='',$messagelimit=0, $messagehistorylink=false, $viewingnewmessages=false) {
-    global $CFG, $OUTPUT;
+    global $CFG, $OUTPUT, $SITE;
 
     echo $OUTPUT->box_start('center');
     echo html_writer::start_tag('table', array('cellpadding' => '10', 'class' => 'message_user_pictures'));
     echo html_writer::start_tag('tr');
 
     echo html_writer::start_tag('td', array('align' => 'center', 'id' => 'user1'));
-    echo $OUTPUT->user_picture($user1, array('size' => 100, 'courseid' => SITEID));
+    echo $OUTPUT->user_picture($user1, array('size' => 100, 'courseid' => $SITE->id));
     echo html_writer::tag('div', fullname($user1), array('class' => 'heading'));
     echo html_writer::end_tag('td');
 
@@ -1848,7 +1848,7 @@ function message_print_message_history($user1,$user2,$search='',$messagelimit=0,
     echo html_writer::end_tag('td');
 
     echo html_writer::start_tag('td', array('align' => 'center', 'id' => 'user2'));
-    echo $OUTPUT->user_picture($user2, array('size' => 100, 'courseid' => SITEID));
+    echo $OUTPUT->user_picture($user2, array('size' => 100, 'courseid' => $SITE->id));
     echo html_writer::tag('div', fullname($user2), array('class' => 'heading'));
 
     if (isset($user2->iscontact) && isset($user2->isblocked)) {
@@ -2001,7 +2001,7 @@ function message_format_contexturl($message) {
  * @return int|false the ID of the new message or false
  */
 function message_post_message($userfrom, $userto, $message, $format) {
-    global $SITE, $CFG, $USER;
+    global $SITE, $CFG, $USER, $SITE;
 
     $eventdata = new stdClass();
     $eventdata->component        = 'moodle';
@@ -2026,7 +2026,7 @@ function message_post_message($userfrom, $userto, $message, $format) {
     $eventdata->smallmessage     = $message;//store the message unfiltered. Clean up on output.
 
     $s = new stdClass();
-    $s->sitename = format_string($SITE->shortname, true, array('context' => get_context_instance(CONTEXT_COURSE, SITEID)));
+    $s->sitename = format_string($SITE->shortname, true, array('context' => get_context_instance(CONTEXT_COURSE, $SITE->id)));
     $s->url = $CFG->wwwroot.'/message/index.php?user='.$userto->id.'&id='.$userfrom->id;
 
     $emailtagline = get_string_manager()->get_string('emailtagline', 'message', $s, $userto->lang);
@@ -2074,7 +2074,7 @@ function message_get_participants() {
  * @return void
  */
 function message_print_contactlist_user($contact, $incontactlist = true, $isblocked = false, $selectcontacturl = null, $showactionlinks = true, $selecteduser=null) {
-    global $OUTPUT, $USER;
+    global $OUTPUT, $USER, $SITE;
     $fullname  = fullname($contact);
     $fullnamelink  = $fullname;
 
@@ -2098,7 +2098,7 @@ function message_print_contactlist_user($contact, $incontactlist = true, $isbloc
 
     echo html_writer::start_tag('tr');
     echo html_writer::start_tag('td', array('class' => 'pix'));
-    echo $OUTPUT->user_picture($contact, array('size' => 20, 'courseid' => SITEID));
+    echo $OUTPUT->user_picture($contact, array('size' => 20, 'courseid' => $SITE->id));
     echo html_writer::end_tag('td');
 
     echo html_writer::start_tag('td', array('class' => 'contact'));

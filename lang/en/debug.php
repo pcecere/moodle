@@ -37,6 +37,7 @@ $string['invalidarraysize'] = 'Incorrect size of arrays in params of {$a}';
 $string['invalideventdata'] = 'Incorrect eventadata submitted: {$a}';
 $string['invalidparameter'] = 'Invalid parameter value detected';
 $string['invalidresponse'] = 'Invalid response value detected';
+$string['invalidtenantaccess'] = 'Tenant access violation detected';
 $string['missingconfigversion'] = 'Config table does not contain version, can not continue, sorry.';
 $string['modulenotexist'] = '{$a} module doesn\'t exist';
 $string['morethanonerecordinfetch'] = 'Found more than one record in fetch() !';

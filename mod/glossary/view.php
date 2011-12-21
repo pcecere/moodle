@@ -120,7 +120,7 @@ if ( $show ) {
     $show = '';
 }
 /// Processing standard security processes
-if ($course->id != SITEID) {
+if ($course->id != $SITE->id) {
     require_login($course->id);
 }
 if (!$cm->visible and !has_capability('moodle/course:viewhiddenactivities', $context)) {

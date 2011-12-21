@@ -62,7 +62,7 @@ abstract class backup_cron_automated_helper {
      * @global moodle_database $DB
      */
     public static function run_automated_backup($rundirective = self::RUN_ON_SCHEDULE) {
-        global $CFG, $DB;
+        global $CFG, $DB, $SITE;
 
         $status = true;
         $emailpending = false;
@@ -207,7 +207,7 @@ abstract class backup_cron_automated_helper {
 
             //Build the message subject
             $site = get_site();
-            $prefix = format_string($site->shortname, true, array('context' => get_context_instance(CONTEXT_COURSE, SITEID))).": ";
+            $prefix = format_string($site->shortname, true, array('context' => get_context_instance(CONTEXT_COURSE, $SITE->id))).": ";
             if ($haserrors) {
                 $prefix .= "[".strtoupper(get_string('error'))."] ";
             }

@@ -36,7 +36,7 @@ $filter  = optional_param('ifilter', 0, PARAM_INT);
 $course = $DB->get_record('course', array('id'=>$id), '*', MUST_EXIST);
 $context = get_context_instance(CONTEXT_COURSE, $course->id, MUST_EXIST);
 
-if ($course->id == SITEID) {
+if ($course->id == $SITE->id) {
     redirect(new moodle_url('/'));
 }
 

@@ -40,6 +40,11 @@
         user_accesstime_log();
     }
 
+    if ($TENANT->id) {
+        require_once($CFG->libdir .'/tenantlib.php');
+        tenant_install_hacks();
+    }
+
     $hassiteconfig = has_capability('moodle/site:config', get_context_instance(CONTEXT_SYSTEM));
 
     $PAGE->set_url('/');
@@ -66,7 +71,7 @@
     }
 
     if (isloggedin()) {
-        add_to_log(SITEID, 'course', 'view', 'view.php?id='.SITEID, SITEID);
+        add_to_log($SITE->id, 'course', 'view', 'view.php?id='.$SITE->id, $SITE->id);
     }
 
 /// If the hub plugin is installed then we let it take over the homepage here
@@ -118,7 +123,7 @@
                 echo '</font></p>';
             }
 
-            $context = get_context_instance(CONTEXT_COURSE, SITEID);
+            $context = get_context_instance(CONTEXT_COURSE, $SITE->id);
             $summarytext = file_rewrite_pluginfile_urls($section->summary, 'pluginfile.php', $context->id, 'course', 'section', $section->id);
             $summaryformatoptions = new stdClass();
             $summaryformatoptions->noclean = true;

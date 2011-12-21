@@ -72,7 +72,7 @@ class accesslib_test extends UnitTestCaseUsingDatabase {
      * A small functional test of accesslib functions and classes.
      */
     public function test_everything_in_accesslib() {
-        global $USER, $SITE, $CFG, $DB, $ACCESSLIB_PRIVATE;
+        global $USER, $SITE, $CFG, $DB, $ACCESSLIB_PRIVATE, $SITE;
 
         // First of all finalize the session, we must not carry over any of this mess to the next page via SESSION!!!
         session_get_instance()->write_close();
@@ -159,7 +159,7 @@ class accesslib_test extends UnitTestCaseUsingDatabase {
         $allroles = $DB->get_records_menu('role', array(), 'id', 'archetype, id');
 
         $systemcontext = context_system::instance();
-        $frontpagecontext = context_course::instance(SITEID);
+        $frontpagecontext = context_course::instance($SITE->id);
 
         // Add block to system context
         $bi = new stdClass();

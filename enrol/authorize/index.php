@@ -36,14 +36,14 @@
 
 /// Parameters
     $orderid  = optional_param('order', 0, PARAM_INT);
-    $courseid = optional_param('course', SITEID, PARAM_INT);
+    $courseid = optional_param('course', $SITE->id, PARAM_INT);
     $userid   = optional_param('user', 0, PARAM_INT);
 
     $url = new moodle_url('/enrol/authorize/index.php');
     if ($orderid !== 0) {
         $url->param('order', $orderid);
     }
-    if ($courseid !== SITEID) {
+    if ($courseid !== $SITE->id) {
         $url->param('course', $courseid);
     }
     if ($userid !== 0) {

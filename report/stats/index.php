@@ -27,7 +27,7 @@ require_once('../../config.php');
 require_once($CFG->dirroot.'/report/stats/locallib.php');
 require_once($CFG->libdir.'/adminlib.php');
 
-$courseid = optional_param('course', SITEID, PARAM_INT);
+$courseid = optional_param('course', $SITE->id, PARAM_INT);
 $report   = optional_param('report', 0, PARAM_INT);
 $time     = optional_param('time', 0, PARAM_INT);
 $mode     = optional_param('mode', STATS_MODE_GENERAL, PARAM_INT);
@@ -40,7 +40,7 @@ if ($report > 50) {
 }
 
 if ($report == STATS_REPORT_USER_LOGINS) {
-    $courseid = SITEID; //override
+    $courseid = $SITE->id; //override
 }
 
 if ($mode == STATS_MODE_RANKED) {
@@ -70,7 +70,7 @@ $PAGE->set_url(new moodle_url('/report/stats/index.php', array('course' => $cour
 add_to_log($course->id, "course", "report stats", "report/stats/index.php?course=$course->id", $course->id);
 stats_check_uptodate($course->id);
 
-if ($course->id == SITEID) {
+if ($course->id == $SITE->id) {
     admin_externalpage_setup('reportstats', '', null, '', array('pagelayout'=>'report'));
     echo $OUTPUT->header();
 } else {

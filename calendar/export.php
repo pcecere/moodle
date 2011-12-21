@@ -54,14 +54,14 @@ if (empty($CFG->enablecalendarexport)) {
     die('no export');
 }
 
-$courseid = optional_param('course', SITEID, PARAM_INT);
+$courseid = optional_param('course', $SITE->id, PARAM_INT);
 $action = optional_param('action', '', PARAM_ALPHA);
 $day  = optional_param('cal_d', 0, PARAM_INT);
 $mon  = optional_param('cal_m', 0, PARAM_INT);
 $yr   = optional_param('cal_y', 0, PARAM_INT);
 $generateurl = optional_param('generateurl', 0, PARAM_BOOL);
 
-if ($courseid != SITEID && !empty($courseid)) {
+if ($courseid != $SITE->id && !empty($courseid)) {
     $course = $DB->get_record('course', array('id' => $courseid));
     $courses = array($course->id => $course);
     $issite = false;

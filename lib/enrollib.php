@@ -390,7 +390,7 @@ function enrol_course_updated($inserted, $course, $data) {
  * @return void
  */
 function enrol_add_course_navigation(navigation_node $coursenode, $course) {
-    global $CFG;
+    global $CFG, $SITE;
 
     $coursecontext = get_context_instance(CONTEXT_COURSE, $course->id);
 
@@ -406,7 +406,7 @@ function enrol_add_course_navigation(navigation_node $coursenode, $course) {
 
     $usersnode = $coursenode->add(get_string('users'), null, navigation_node::TYPE_CONTAINER, null, 'users');
 
-    if ($course->id != SITEID) {
+    if ($course->id != $SITE->id) {
         // list all participants - allows assigning roles, groups, etc.
         if (has_capability('moodle/course:enrolreview', $coursecontext)) {
             $url = new moodle_url('/enrol/users.php', array('id'=>$course->id));
@@ -450,7 +450,7 @@ function enrol_add_course_navigation(navigation_node $coursenode, $course) {
         $permissionsnode = $usersnode->add(get_string('permissions', 'role'), $url, navigation_node::TYPE_SETTING, null, 'override');
 
         // Add assign or override roles if allowed
-        if ($course->id == SITEID or (!empty($CFG->adminsassignrolesincourse) and is_siteadmin())) {
+        if ($course->id == $SITE->id or (!empty($CFG->adminsassignrolesincourse) and is_siteadmin())) {
             if (has_capability('moodle/role:assign', $coursecontext)) {
                 $url = new moodle_url('/admin/roles/assign.php', array('contextid'=>$coursecontext->id));
                 $permissionsnode->add(get_string('assignedroles', 'role'), $url, navigation_node::TYPE_SETTING, null, 'roles', new pix_icon('i/roles', ''));
@@ -464,7 +464,7 @@ function enrol_add_course_navigation(navigation_node $coursenode, $course) {
      }
 
      // Deal somehow with users that are not enrolled but still got a role somehow
-    if ($course->id != SITEID) {
+    if ($course->id != $SITE->id) {
         //TODO, create some new UI for role assignments at course level
         if (has_capability('moodle/role:assign', $coursecontext)) {
             $url = new moodle_url('/enrol/otherusers.php', array('id'=>$course->id));
@@ -475,7 +475,7 @@ function enrol_add_course_navigation(navigation_node $coursenode, $course) {
     // just in case nothing was actually added
     $usersnode->trim_if_empty();
 
-    if ($course->id != SITEID) {
+    if ($course->id != $SITE->id) {
         // Unenrol link
         if (is_enrolled($coursecontext)) {
             foreach ($instances as $instance) {
@@ -524,7 +524,7 @@ function enrol_add_course_navigation(navigation_node $coursenode, $course) {
  * @return array
  */
 function enrol_get_my_courses($fields = NULL, $sort = 'visible DESC,sortorder ASC', $limit = 0) {
-    global $DB, $USER;
+    global $DB, $USER, $SITE;
 
     // Guest account does not have any courses
     if (isguestuser() or !isloggedin()) {
@@ -569,7 +569,7 @@ function enrol_get_my_courses($fields = NULL, $sort = 'visible DESC,sortorder AS
     }
 
     $wheres = array("c.id <> :siteid");
-    $params = array('siteid'=>SITEID);
+    $params = array('siteid'=>$SITE->id);
 
     if (isset($USER->loginascontext) and $USER->loginascontext->contextlevel == CONTEXT_COURSE) {
         // list _only_ this course - anything else is asking for trouble...
@@ -690,7 +690,7 @@ function enrol_get_course_description_texts($course) {
  * @return array
  */
 function enrol_get_users_courses($userid, $onlyactive = false, $fields = NULL, $sort = 'visible DESC,sortorder ASC') {
-    global $DB;
+    global $DB, $SITE;
 
     // Guest account does not have any courses
     if (isguestuser($userid) or empty($userid)) {
@@ -734,7 +734,7 @@ function enrol_get_users_courses($userid, $onlyactive = false, $fields = NULL, $
         $orderby = "ORDER BY $sort";
     }
 
-    $params = array('siteid'=>SITEID);
+    $params = array('siteid'=>$SITE->id);
 
     if ($onlyactive) {
         $subwhere = "WHERE ue.status = :active AND e.status = :enabled AND ue.timestart < :now1 AND (ue.timeend = 0 OR ue.timeend > :now2)";
@@ -1171,9 +1171,9 @@ abstract class enrol_plugin {
      * @return void
      */
     public function enrol_user(stdClass $instance, $userid, $roleid = NULL, $timestart = 0, $timeend = 0, $status = NULL) {
-        global $DB, $USER, $CFG; // CFG necessary!!!
+        global $DB, $USER, $CFG, $SITE; // CFG necessary!!!
 
-        if ($instance->courseid == SITEID) {
+        if ($instance->courseid == $SITE->id) {
             throw new coding_exception('invalid attempt to enrol into frontpage course!');
         }
 
@@ -1183,7 +1183,12 @@ abstract class enrol_plugin {
         if ($instance->enrol !== $name) {
             throw new coding_exception('invalid enrol instance!');
         }
-        $context = get_context_instance(CONTEXT_COURSE, $instance->courseid, MUST_EXIST);
+        $context = context_course::instance($instance->courseid);
+        $usercontext = context_user::instance($userid);
+
+        if ($context->tenantid != $usercontext->tenantid) {
+            throw new tenant_access_exception('Can not enrol in different tenant');
+        }
 
         $inserted = false;
         $updated  = false;
@@ -1429,14 +1434,14 @@ abstract class enrol_plugin {
      * @return moodle_url or NULL if self unenrolment not supported
      */
     public function get_unenrolself_link($instance) {
-        global $USER, $CFG, $DB;
+        global $USER, $CFG, $DB, $SITE;
 
         $name = $this->get_name();
         if ($instance->enrol !== $name) {
             throw new coding_exception('invalid enrol instance!');
         }
 
-        if ($instance->courseid == SITEID) {
+        if ($instance->courseid == $SITE->id) {
             return NULL;
         }
 
@@ -1513,9 +1518,9 @@ abstract class enrol_plugin {
      * @return int id of new instance, null if can not be created
      */
     public function add_instance($course, array $fields = NULL) {
-        global $DB;
+        global $DB, $SITE;
 
-        if ($course->id == SITEID) {
+        if ($course->id == $SITE->id) {
             throw new coding_exception('Invalid request to add enrol instance to frontpage.');
         }
 

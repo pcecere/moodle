@@ -91,7 +91,7 @@ echo $OUTPUT->heading($reportoptions[$report]);
 
 
 if (!empty($report) && !empty($time)) {
-    $param = stats_get_parameters($time,$report,SITEID,STATS_MODE_RANKED);
+    $param = stats_get_parameters($time,$report,$SITE->id,STATS_MODE_RANKED);
     if (!empty($param->sql)) {
         $sql = $param->sql;
     } else {

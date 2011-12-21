@@ -5,6 +5,8 @@
 // since they need to exist *before* settingpages and externalpages
 // are added to them.
 
+defined('MOODLE_INTERNAL') || die();
+
 $systemcontext = get_context_instance(CONTEXT_SYSTEM);
 $hassiteconfig = has_capability('moodle/site:config', $systemcontext);
 

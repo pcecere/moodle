@@ -142,7 +142,7 @@
     $SESSION->fromdiscussion = $CFG->wwwroot .'/course/view.php?id='. $course->id;
 
 
-    if ($course->id == SITEID) {
+    if ($course->id == $SITE->id) {
         // This course is not a real course.
         redirect($CFG->wwwroot .'/');
     }

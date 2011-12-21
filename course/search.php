@@ -15,8 +15,10 @@
     $blocklist = optional_param('blocklist', 0, PARAM_INT);
     $modulelist= optional_param('modulelist', '', PARAM_PLUGIN);
 
+    $topcontext = context_helper::top_context();
+
     $PAGE->set_url('/course/search.php', compact('search', 'page', 'perpage', 'blocklist', 'modulelist', 'edit'));
-    $PAGE->set_context(get_context_instance(CONTEXT_SYSTEM));
+    $PAGE->set_context($topcontext);
     $search = trim(strip_tags($search)); // trim & clean raw searched string
 
     if ($search) {
@@ -41,7 +43,6 @@
         $urlparams['perpage'] = $perpage;
     }
     $PAGE->set_url('/course/search.php', $urlparams);
-    $PAGE->set_context(get_context_instance(CONTEXT_SYSTEM));
 
     if ($CFG->forcelogin) {
         require_login();
@@ -57,7 +58,7 @@
     }
 
 /// Editing functions
-    if (has_capability('moodle/course:visibility', get_context_instance(CONTEXT_SYSTEM))) {
+    if (has_capability('moodle/course:visibility', $topcontext)) {
     /// Hide or show a course
         if ($hide or $show and confirm_sesskey()) {
             if ($hide) {
@@ -73,7 +74,7 @@
         }
     }
 
-    if (has_capability('moodle/course:create', get_context_instance(CONTEXT_SYSTEM)) && $perpage != 99999) {
+    if (has_capability('moodle/course:create', $topcontext) && $perpage != 99999) {
         $perpage = 30;
     }
 
@@ -173,10 +174,10 @@
 
     $searchform = print_course_search($search, true, "navbar");
 
-    if (!empty($courses) && has_capability('moodle/course:create', get_context_instance(CONTEXT_SYSTEM))) {
+    if (!empty($courses) && has_capability('moodle/course:create', $topcontext)) {
         $searchform = '';
         // not sure if this capability is the best  here
-        if (has_capability('moodle/category:manage', get_context_instance(CONTEXT_SYSTEM))) {
+        if (has_capability('moodle/category:manage', $topcontext)) {
             if ($PAGE->user_is_editing()) {
                 $string = get_string("turneditingoff");
                 $edit = "off";

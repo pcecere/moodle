@@ -27,7 +27,12 @@
  * Execute cron tasks
  */
 function cron_run() {
-    global $DB, $CFG, $OUTPUT;
+    global $DB, $CFG, $OUTPUT, $TENANT;
+
+    if ($TENANT->id) {
+        // TODO: add some cron support for tenants
+        throw new coding_exception('support for tenant cron is NOT implemented!');
+    }
 
     if (CLI_MAINTENANCE) {
         echo "CLI maintenance mode active, cron execution suspended.\n";

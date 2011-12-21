@@ -136,6 +136,8 @@ define('CAP_PROHIBIT', -1000);
 
 /** System context level - only one instance in every system */
 define('CONTEXT_SYSTEM', 10);
+/** Tenant context level - used for compelte separation of tenants */
+define('CONTEXT_TENANT', 20);
 /** User context level -  one instance for each user describing what others can do to user */
 define('CONTEXT_USER', 30);
 /** Course category context level - one instance for each category */
@@ -248,9 +250,10 @@ function accesslib_clear_all_caches($resetcontexts) {
  *
  * @private
  * @param int $roleid
+ * @param int $tenantid
  * @return array
  */
-function get_role_access($roleid) {
+function get_role_access($roleid, $tenantid) {
     global $DB, $ACCESSLIB_PRIVATE;
 
     /* Get it in 1 DB query...
@@ -264,6 +267,7 @@ function get_role_access($roleid) {
 
     $accessdata['ra']['/'.SYSCONTEXTID] = array((int)$roleid => (int)$roleid);
 
+    $params = array('roleid'=>$roleid, 'tenantid'=>$tenantid);
     //
     // Overrides for the role IN ANY CONTEXTS
     // down to COURSE - not below -
@@ -274,8 +278,7 @@ function get_role_access($roleid) {
               JOIN {role_capabilities} rc ON rc.contextid = ctx.id
          LEFT JOIN {context} cctx
                    ON (cctx.contextlevel = ".CONTEXT_COURSE." AND ctx.path LIKE ".$DB->sql_concat('cctx.path',"'/%'").")
-             WHERE rc.roleid = ? AND cctx.id IS NULL";
-    $params = array($roleid);
+             WHERE rc.roleid = :roleid AND cctx.id IS NULL AND (ctx.tenantid = :tenantid OR ctx.contextlevel = ".CONTEXT_SYSTEM.")";
 
     // we need extra caching in CLI scripts and cron
     $rs = $DB->get_recordset_sql($sql, $params);
@@ -346,7 +349,7 @@ function get_guest_role() {
  * @return boolean true if the user has this capability. Otherwise false.
  */
 function has_capability($capability, context $context, $user = null, $doanything = true) {
-    global $USER, $CFG, $SCRIPT, $ACCESSLIB_PRIVATE;
+    global $USER, $CFG, $SCRIPT, $ACCESSLIB_PRIVATE, $TENANT;
 
     if (during_initial_install()) {
         if ($SCRIPT === "/$CFG->admin/index.php" or $SCRIPT === "/$CFG->admin/cli/install.php" or $SCRIPT === "/$CFG->admin/cli/install_database.php") {
@@ -395,7 +398,13 @@ function has_capability($capability, context $context, $user = null, $doanything
         }
     }
 
+    // prevent access from/to tenant sites if tenants disabled
+    if (empty($CFG->enabletenants) and ($TENANT->id or $context->tenantid)) {
+        return false;
+    }
+
     // somehow make sure the user is not deleted and actually exists
+    $usercontext = null;
     if ($userid != 0) {
         if ($userid == $USER->id and isset($USER->deleted)) {
             // this prevents one query per page, it is a bit of cheating,
@@ -404,11 +413,32 @@ function has_capability($capability, context $context, $user = null, $doanything
                 return false;
             }
         } else {
-            if (!context_user::instance($userid, IGNORE_MISSING)) {
+            if (!$usercontext = context_user::instance($userid, IGNORE_MISSING)) {
                 // no user context == invalid userid
                 return false;
             }
         }
+    }
+
+    // enforce full tenant separation
+    if ($TENANT->id != $context->tenantid) {
+        // do not allow anybody even admins to access stuff from different tenant or system when in tenant
+        return false;
+    }
+    if ($userid != 0 and !isguestuser($userid)) { // not logged in and guest allowed in all tenants
+        if ($userid == $USER->id and isset($USER->tenantid)) {
+            if ($USER->tenantid != $TENANT->id) {
+                return false;
+            }
+        } else {
+            if (!$usercontext) {
+                $usercontext = context_user::instance($userid, IGNORE_MISSING);
+            }
+            if ($usercontext->tenantid != $TENANT->id) {
+                return false;
+            }
+        }
+
     }
 
     // context path/depth must be valid
@@ -531,7 +561,12 @@ function has_all_capabilities(array $capabilities, context $context, $userid = n
  * @return bool true if user is one of the administrators, false otherwise
  */
 function is_siteadmin($user_or_id = null) {
-    global $CFG, $USER;
+    global $CFG, $USER, $TENANT;
+
+    if ($TENANT->id) {
+        // there are no admins in tenant sites
+        return false;
+    }
 
     if ($user_or_id === null) {
         $user_or_id = $USER;
@@ -558,15 +593,16 @@ function is_siteadmin($user_or_id = null) {
  * @return bool
  */
 function has_coursecontact_role($userid) {
-    global $DB, $CFG;
+    global $DB, $CFG, $TENANT;
 
     if (empty($CFG->coursecontact)) {
         return false;
     }
     $sql = "SELECT 1
-              FROM {role_assignments}
-             WHERE userid = :userid AND roleid IN ($CFG->coursecontact)";
-    return $DB->record_exists_sql($sql, array('userid'=>$userid));
+              FROM {role_assignments} ra
+              JOIN {context} c ON (c.id = ra.contextid AND c.tenantid = :tenantid)
+             WHERE ra.userid = :userid AND ra.roleid IN ($CFG->coursecontact)";
+    return $DB->record_exists_sql($sql, array('userid'=>$userid, 'tenantid'=>$TENANT->id));
 }
 
 /**
@@ -705,9 +741,10 @@ function require_capability($capability, context $context, $userid = null, $doan
  *
  * @private
  * @param int $userid - the id of the user
+ * @param int $tenantid - tenantid of the user
  * @return array access info array
  */
-function get_user_access_sitewide($userid) {
+function get_user_access_sitewide($userid, $tenantid) {
     global $CFG, $DB, $ACCESSLIB_PRIVATE;
 
     /* Get in a few cheap DB queries...
@@ -721,16 +758,23 @@ function get_user_access_sitewide($userid) {
     $raparents = array();
     $accessdata = get_empty_accessdata();
 
+    if ($tenantid) {
+        $rootcontext = context_tenant::instance($tenantid);
+    } else {
+        $rootcontext = context_system::instance();
+    }
+
+    $site = get_site($tenantid);
+
     // start with the default role
     if (!empty($CFG->defaultuserroleid)) {
-        $syscontext = context_system::instance();
-        $accessdata['ra'][$syscontext->path][(int)$CFG->defaultuserroleid] = (int)$CFG->defaultuserroleid;
-        $raparents[$CFG->defaultuserroleid][$syscontext->path] = $syscontext->path;
+        $accessdata['ra'][$rootcontext->path][(int)$CFG->defaultuserroleid] = (int)$CFG->defaultuserroleid;
+        $raparents[$CFG->defaultuserroleid][$rootcontext->path] = $rootcontext->path;
     }
 
     // load the "default frontpage role"
     if (!empty($CFG->defaultfrontpageroleid)) {
-        $frontpagecontext = context_course::instance(get_site()->id);
+        $frontpagecontext = context_course::instance($site->id);
         if ($frontpagecontext->path) {
             $accessdata['ra'][$frontpagecontext->path][(int)$CFG->defaultfrontpageroleid] = (int)$CFG->defaultfrontpageroleid;
             $raparents[$CFG->defaultfrontpageroleid][$frontpagecontext->path] = $frontpagecontext->path;
@@ -743,10 +787,10 @@ function get_user_access_sitewide($userid) {
               JOIN {context} ctx ON ctx.id = ra.contextid
          LEFT JOIN {context} cctx
                    ON (cctx.contextlevel = ".CONTEXT_COURSE." AND ctx.path LIKE ".$DB->sql_concat('cctx.path',"'/%'").")
-             WHERE ra.userid = :userid AND cctx.id IS NULL";
+             WHERE ra.userid = :userid AND cctx.id IS NULL AND ctx.tenantid = :tenantid";
 
 
-    $params = array('userid'=>$userid);
+    $params = array('userid'=>$userid, 'tenantid'=>$tenantid);
     $rs = $DB->get_recordset_sql($sql, $params);
     foreach ($rs as $ra) {
         // RAs leafs are arrays to support multi-role assignments...
@@ -832,6 +876,16 @@ function load_course_context($userid, context_course $coursecontext, &$accessdat
         return;
     }
 
+    if (!$usercontext = context_user::instance($userid, IGNORE_MISSING)) {
+        return;
+    }
+
+    if ($usercontext->tenantid != $coursecontext) {
+        return;
+    }
+
+    $site = get_site($usercontext->tenantid);
+
     $roles = array();
 
     if (empty($userid)) {
@@ -849,9 +903,10 @@ function load_course_context($userid, context_course $coursecontext, &$accessdat
         list($parentsaself, $params) = $DB->get_in_or_equal($coursecontext->get_parent_context_ids(true), SQL_PARAMS_NAMED, 'pc_');
         $params['userid'] = $userid;
         $params['children'] = $coursecontext->path."/%";
+        $params['tenantid'] = $usercontext->tenantid;
         $sql = "SELECT ra.*, ctx.path
                   FROM {role_assignments} ra
-                  JOIN {context} ctx ON ra.contextid = ctx.id
+                  JOIN {context} ctx ON (ra.contextid = ctx.id AND ctx.tenantid = :tenantid)
                  WHERE ra.userid = :userid AND (ctx.id $parentsaself OR ctx.path LIKE :children)";
         $rs = $DB->get_recordset_sql($sql, $params);
 
@@ -864,7 +919,7 @@ function load_course_context($userid, context_course $coursecontext, &$accessdat
 
         // add the "default frontpage role" when on the frontpage
         if (!empty($CFG->defaultfrontpageroleid)) {
-            $frontpagecontext = context_course::instance(get_site()->id);
+            $frontpagecontext = context_course::instance($site->id);
             if ($frontpagecontext->id == $coursecontext->id) {
                 $roles[$CFG->defaultfrontpageroleid] = $CFG->defaultfrontpageroleid;
             }
@@ -948,6 +1003,11 @@ function load_role_access_by_context($roleid, context $context, &$accessdata) {
      *   - below this ctx
      */
 
+    if ($context->contextlevel == CONTEXT_SYSTEM or $context->contextlevel == CONTEXT_TENANT) {
+        debugging('Can not use load_role_access_by_context() in system or tenant context.');
+        return;
+    }
+
     if (empty($context->path)) {
         // weird, this should not happen
         return;
@@ -988,7 +1048,7 @@ function load_role_access_by_context($roleid, context $context, &$accessdata) {
  * Returns empty accessdata structure.
  *
  * @private
- * @return array empt accessdata
+ * @return array empty accessdata
  */
 function get_empty_accessdata() {
     $accessdata               = array(); // named list
@@ -1011,7 +1071,7 @@ function get_empty_accessdata() {
  * @return array accessdata
  */
 function get_user_accessdata($userid, $preloadonly=false) {
-    global $CFG, $ACCESSLIB_PRIVATE, $USER;
+    global $CFG, $ACCESSLIB_PRIVATE, $USER, $TENANT;
 
     if (!empty($USER->acces['rdef']) and empty($ACCESSLIB_PRIVATE->rolepermissions)) {
         // share rdef from USER session with rolepermissions cache in order to conserve memory
@@ -1024,22 +1084,33 @@ function get_user_accessdata($userid, $preloadonly=false) {
     if (!isset($ACCESSLIB_PRIVATE->accessdatabyuser[$userid])) {
         if (empty($userid)) {
             if (!empty($CFG->notloggedinroleid)) {
-                $accessdata = get_role_access($CFG->notloggedinroleid);
+                $accessdata = get_role_access($CFG->notloggedinroleid, $TENANT->id);
             } else {
                 // weird
                 return get_empty_accessdata();
             }
 
-        } else if (isguestuser($userid)) {
-            if ($guestrole = get_guest_role()) {
-                $accessdata = get_role_access($guestrole->id);
-            } else {
-                //weird
+        } else {
+            if (!$usercontext = context_user::instance($userid, IGNORE_MISSING)) {
+                // deleted user??
                 return get_empty_accessdata();
             }
 
-        } else {
-            $accessdata = get_user_access_sitewide($userid); // includes default role and frontpage role
+            if ($usercontext->tenantid == $TENANT->id) {
+                if (isguestuser($userid)) {
+                    if ($guestrole = get_guest_role()) {
+                        $accessdata = get_role_access($guestrole->id, $usercontext->tenantid);
+                    } else {
+                        //weird
+                        return get_empty_accessdata();
+                    }
+
+                } else {
+                    $accessdata = get_user_access_sitewide($userid, $usercontext->tenantid); // includes default role and frontpage role
+                }
+            } else {
+                return get_empty_accessdata();
+            }
         }
 
         $ACCESSLIB_PRIVATE->accessdatabyuser[$userid] = $accessdata;
@@ -1174,15 +1245,22 @@ function reload_all_capabilities() {
  * @return void
  */
 function load_temp_course_role(context_course $coursecontext, $roleid) {
-    global $USER, $SITE;
+    global $USER;
 
     if (empty($roleid)) {
         debugging('invalid role specified in load_temp_course_role()');
         return;
     }
 
-    if ($coursecontext->instanceid == $SITE->id) {
+    $site = get_site($coursecontext->tenantid);
+
+    if ($coursecontext->instanceid == $site->id) {
         debugging('Can not use temp roles on the frontpage');
+        return;
+    }
+
+    if ($USER->tenantid != $coursecontext->tenantid) {
+        debugging('Can not load temp course role in different tenant');
         return;
     }
 
@@ -1212,10 +1290,17 @@ function load_temp_course_role(context_course $coursecontext, $roleid) {
  * @return void
  */
 function remove_temp_course_roles(context_course $coursecontext) {
-    global $DB, $USER, $SITE;
+    global $DB, $USER;
 
-    if ($coursecontext->instanceid == $SITE->id) {
+    $site = get_site($coursecontext->tenantid);
+
+    if ($coursecontext->instanceid == $site->id) {
         debugging('Can not use temp roles on the frontpage');
+        return;
+    }
+
+    if ($USER->tenantid != $coursecontext->tenantid) {
+        debugging('Can not remove temp course role in different tenant');
         return;
     }
 
@@ -1399,7 +1484,7 @@ function create_role($name, $shortname, $description, $archetype = '') {
  * @return bool always true
  */
 function delete_role($roleid) {
-    global $DB;
+    global $DB, $SITE;
 
     // first unssign all users
     role_unassign_all(array('roleid'=>$roleid));
@@ -1419,7 +1504,7 @@ function delete_role($roleid) {
 
     $DB->delete_records('role', array('id'=>$roleid));
 
-    add_to_log(SITEID, 'role', 'delete', 'admin/roles/action=delete&roleid='.$roleid, $rolename, '');
+    add_to_log($SITE->id, 'role', 'delete', 'admin/roles/action=delete&roleid='.$roleid, $rolename, '');
 
     return true;
 }
@@ -1586,7 +1671,7 @@ function role_assign($roleid, $userid, $contextid, $component = '', $itemid = 0,
         }
     }
 
-    if (!$DB->record_exists('user', array('id'=>$userid, 'deleted'=>0))) {
+    if (!$usercontext = context_user::instance($userid, IGNORE_MISSING)) {
         throw new coding_exception('User ID does not exist or is deleted!', 'userid:'.$userid);
     }
 
@@ -1594,6 +1679,13 @@ function role_assign($roleid, $userid, $contextid, $component = '', $itemid = 0,
         $context = $contextid;
     } else {
         $context = context::instance_by_id($contextid, MUST_EXIST);
+    }
+
+    // verify tenant restrictions
+    if ($usercontext->tenantid != $context->tenantid) {
+echo '<pre>';var_dump($context);echo '</pre>';
+echo '<pre>';var_dump($usercontext);echo '</pre>';
+        throw new coding_exception('Can not assign roles to user in different tenant site', 'userid:'.$userid);
     }
 
     if (!$timemodified) {
@@ -1783,14 +1875,11 @@ function isloggedin() {
 function isguestuser($user = null) {
     global $USER, $DB, $CFG;
 
-    // make sure we have the user id cached in config table, because we are going to use it a lot
     if (empty($CFG->siteguest)) {
-        if (!$guestid = $DB->get_field('user', 'id', array('username'=>'guest', 'mnethostid'=>$CFG->mnet_localhost_id))) {
-            // guest does not exist yet, weird
-            return false;
-        }
-        set_config('siteguest', $guestid);
+        // bad luck, somebdoy deleted our guest flag
+        return false;
     }
+
     if ($user === null) {
         $user = $USER;
     }
@@ -1804,7 +1893,7 @@ function isguestuser($user = null) {
 
     } else if (is_object($user)) {
         if (empty($user->id)) {
-            return false; // not logged in means is not be guest
+            return false; // not logged in means is not guest
         } else {
             return ($CFG->siteguest == $user->id);
         }
@@ -1908,15 +1997,22 @@ function is_enrolled(context $context, $user = null, $withcapability = '', $only
         $userid = is_object($user) ? $user->id : $user;
     }
 
+    $usercontext = null;
     if (empty($userid)) {
         // not-logged-in!
         return false;
     } else if (isguestuser($userid)) {
         // guest account can not be enrolled anywhere
         return false;
+    } else if (!$usercontext = context_user::instance($userid, IGNORE_MISSING)) {
+        return false; // deleted user
     }
 
-    if ($coursecontext->instanceid == SITEID) {
+    if ($usercontext and $usercontext->tenantid != $coursecontext->tenantid) {
+        return false;
+    }
+
+    if ($coursecontext->instanceid == get_site($coursecontext->tenantid)->id) {
         // everybody participates on frontpage
     } else {
         // try cached info first - the enrolled flag is set only when active enrolment present
@@ -1991,7 +2087,7 @@ function is_enrolled(context $context, $user = null, $withcapability = '', $only
  * @return boolean Returns true if the user is able to access the course
  */
 function can_access_course(stdClass $course, $user = null, $withcapability = '', $onlyactive = false) {
-    global $DB, $USER;
+    global $DB, $USER, $TENANT;
 
     // this function originally accepted $coursecontext parameter
     if ($course instanceof context) {
@@ -2015,10 +2111,16 @@ function can_access_course(stdClass $course, $user = null, $withcapability = '',
     // make sure there is a user specified
     if ($user === null) {
         $userid = $USER->id;
+        $usertenantid = $USER->tenantid;
     } else {
+        $usertenantid = is_object($user) ? $user->tenantid : context_user::instance($user)->tenantid;
         $userid = is_object($user) ? $user->id : $user;
     }
     unset($user);
+
+    if ($course->tenantid != $TENANT->id or $usertenantid != $TENANT->id) {
+        return false;
+    }
 
     if ($withcapability and !has_capability($withcapability, $coursecontext, $userid)) {
         return false;
@@ -2108,7 +2210,7 @@ function get_enrolled_sql(context $context, $withcapability = '', $groupid = 0, 
     // first find the course context
     $coursecontext = $context->get_course_context();
 
-    $isfrontpage = ($coursecontext->instanceid == SITEID);
+    $isfrontpage = ($coursecontext->instanceid == get_site($coursecontext->tenantid)->id);
 
     $joins  = array();
     $wheres = array();
@@ -2220,8 +2322,9 @@ function get_enrolled_sql(context $context, $withcapability = '', $groupid = 0, 
         }
     }
 
-    $wheres[] = "{$prefix}u.deleted = 0 AND {$prefix}u.id <> :{$prefix}guestid";
+    $wheres[] = "{$prefix}u.deleted = 0 AND {$prefix}u.id <> :{$prefix}guestid AND {$prefix}u.tenantid = :{$prefix}tenantid";
     $params["{$prefix}guestid"] = $CFG->siteguest;
+    $params["{$prefix}tenantid"] = $context->tenantid;
 
     if ($isfrontpage) {
         // all users are "enrolled" on the frontpage
@@ -2652,7 +2755,7 @@ function get_context_info_list(context $context) {
  * @return bool
  */
 function is_inside_frontpage(context $context) {
-    $frontpagecontext = context_course::instance(SITEID);
+    $frontpagecontext = context_course::instance(get_site($context->tenantid)->id);
     return strpos($context->path . '/', $frontpagecontext->path . '/') === 0;
 }
 
@@ -2732,6 +2835,7 @@ function get_component_string($component, $contextlevel) {
         switch ($contextlevel) {
             // TODO: this should probably use context level names instead
             case CONTEXT_SYSTEM:    return get_string('coresystem');
+            case CONTEXT_TENANT:    return get_string('tenants');
             case CONTEXT_USER:      return get_string('users');
             case CONTEXT_COURSECAT: return get_string('categories');
             case CONTEXT_COURSE:    return get_string('course');
@@ -2822,20 +2926,31 @@ function get_roles_used_in_context(context $context) {
  * (The permission tab has full details of user role assignments.)
  *
  * @param int $userid
- * @param int $courseid
+ * @param stdClass $course (originally $courseid)
  * @return string
  */
-function get_user_roles_in_course($userid, $courseid) {
+function get_user_roles_in_course($userid, $course) {
     global $CFG, $DB;
+
+    if (!is_object($course)) {
+        debugging('use object $course parameter in get_user_roles_in_course()');
+        $course = $DB->get_record('course', array('id'=>$course), '*', MUST_EXIST);
+    }
 
     if (empty($CFG->profileroles)) {
         return '';
     }
 
-    if ($courseid == SITEID) {
-        $context = context_system::instance();
+    $site = get_site($course->tenantid);
+
+    if ($course->id == $site->id) {
+        if ($site->tenantid) {
+            $context = context_tenant::instance($site->tenantid);
+        } else {
+            $context = context_system::instance();
+        }
     } else {
-        $context = context_course::instance($courseid);
+        $context = context_course::instance($course->id);
     }
 
     if (empty($CFG->profileroles)) {
@@ -3295,8 +3410,8 @@ function get_roles_for_contextlevels($contextlevel) {
  */
 function get_default_contextlevels($rolearchetype) {
     static $defaults = array(
-        'manager'        => array(CONTEXT_SYSTEM, CONTEXT_COURSECAT, CONTEXT_COURSE),
-        'coursecreator'  => array(CONTEXT_SYSTEM, CONTEXT_COURSECAT),
+        'manager'        => array(CONTEXT_SYSTEM, CONTEXT_TENANT, CONTEXT_COURSECAT, CONTEXT_COURSE),
+        'coursecreator'  => array(CONTEXT_SYSTEM, CONTEXT_TENANT, CONTEXT_COURSECAT),
         'editingteacher' => array(CONTEXT_COURSE, CONTEXT_MODULE),
         'teacher'        => array(CONTEXT_COURSE, CONTEXT_MODULE),
         'student'        => array(CONTEXT_COURSE, CONTEXT_MODULE),
@@ -3373,7 +3488,7 @@ function get_users_by_capability(context $context, $capability, $fields = '', $s
     $iscoursepage = false; // coursepage other than fp
     $isfrontpage = false;
     if ($context->contextlevel == CONTEXT_COURSE) {
-        if ($context->instanceid == SITEID) {
+        if ($context->instanceid == get_site($context->tenantid)->id) {
             $isfrontpage = true;
         } else {
             $iscoursepage = true;
@@ -3506,8 +3621,9 @@ function get_users_by_capability(context $context, $capability, $fields = '', $s
     }
 
     /// We never return deleted users or guest account.
-    $wherecond[] = "u.deleted = 0 AND u.id <> :guestid";
+    $wherecond[] = "u.deleted = 0 AND u.id <> :guestid AND u.tenantid = :tenantid";
     $params['guestid'] = $CFG->siteguest;
+    $params['tenantid'] = $context->tenantid;
 
     /// Groups
     if ($groups) {
@@ -3754,6 +3870,8 @@ function get_role_users($roleid, context $context, $parent = false, $fields = ''
         $params = array_merge($params, $whereparams);
     }
 
+    $params[] = $context->tenantid;
+
     $sql = "SELECT DISTINCT $fields, ra.roleid
               FROM {role_assignments} ra
               JOIN {user} u ON u.id = ra.userid
@@ -3763,6 +3881,7 @@ function get_role_users($roleid, context $context, $parent = false, $fields = ''
                    $roleselect
                    $groupselect
                    $extrawheretest
+                   AND u.tenantid = ?
           ORDER BY $sort";                  // join now so that we can just use fullname() later
 
     return $DB->get_records_sql($sql, $params, $limitfrom, $limitnum);
@@ -3799,12 +3918,14 @@ function count_role_users($roleid, context $context, $parent = false) {
 
     array_unshift($params, $context->id);
 
+    $params[] = $context->tenantid;
+
     $sql = "SELECT COUNT(u.id)
               FROM {role_assignments} r
               JOIN {user} u ON u.id = r.userid
              WHERE (r.contextid = ? $parentcontexts)
                    $roleselect
-                   AND u.deleted = 0";
+                   AND u.deleted = 0 AND u.tenantid = ?";
 
     return $DB->count_records_sql($sql, $params);
 }
@@ -3814,7 +3935,7 @@ function count_role_users($roleid, context $context, $parent = false) {
  * It is still not very efficient.
  *
  * @param string $capability Capability in question
- * @param int $userid User ID or null for current user
+ * @param int|stdClass $user User ID or null for current user
  * @param bool $doanything True if 'doanything' is permitted (default)
  * @param string $fieldsexceptid Leave blank if you only need 'id' in the course records;
  *   otherwise use a comma-separated list of the fields you require, not including id
@@ -3822,8 +3943,14 @@ function count_role_users($roleid, context $context, $parent = false) {
  *   table with sql modifiers (DESC) if needed
  * @return array Array of courses, may have zero entries. Or false if query failed.
  */
-function get_user_capability_course($capability, $userid = null, $doanything = true, $fieldsexceptid = '', $orderby = '') {
-    global $DB;
+function get_user_capability_course($capability, $user = null, $doanything = true, $fieldsexceptid = '', $orderby = '') {
+    global $DB, $USER;
+
+    if ($user === null) {
+        $userid = $USER->id;
+    } else {
+        $userid = is_object($user) ? $user->id : $user;
+    }
 
     // Convert fields list and ordering
     $fieldlist = '';
@@ -3852,9 +3979,10 @@ function get_user_capability_course($capability, $userid = null, $doanything = t
     $courses = array();
     $rs = $DB->get_recordset_sql("SELECT x.*, c.id AS courseid $fieldlist
                                     FROM {course} c
-                                   INNER JOIN {context} x
+                                    JOIN {context} x
                                          ON (c.id=x.instanceid AND x.contextlevel=".CONTEXT_COURSE.")
-                                $orderby");
+                                    JOIN {user} u ON (u.tenantid = c.tenantid AND u.tenantid = x.tenantid AND u.id = :userid)
+                                $orderby", array('userid'=>$userid));
     // Check capability for each course in turn
     foreach ($rs as $coursecontext) {
         if (has_capability($capability, $coursecontext, $userid, $doanything)) {
@@ -3930,6 +4058,10 @@ function role_switch($roleid, context $context) {
     // To un-switch just unset($USER->access['rsw'][$path])
     //
     // Note: it is not possible to switch to roles that do not have course:view
+
+    if ($USER->tenantid != $context->tenantid) {
+        throw new tenant_access_exception();
+    }
 
     // Add the switch RA
     if (!isset($USER->access['rsw'])) {
@@ -4495,6 +4627,7 @@ abstract class context extends stdClass {
     protected $_instanceid;
     protected $_path;
     protected $_depth;
+    protected $_tenantid;
 
     /* context caching info */
 
@@ -4614,7 +4747,7 @@ abstract class context extends stdClass {
      * @return void (modifies $rec)
      */
      protected static function preload_from_record(stdClass $rec) {
-         if (empty($rec->ctxid) or empty($rec->ctxlevel) or empty($rec->ctxinstance) or empty($rec->ctxpath) or empty($rec->ctxdepth)) {
+         if (empty($rec->ctxid) or empty($rec->ctxlevel) or empty($rec->ctxinstance) or empty($rec->ctxpath) or empty($rec->ctxdepth) or !isset($rec->ctxtenantid)) {
              // $rec does not have enough data, passed here repeatedly or context does not exist yet
              return;
          }
@@ -4626,6 +4759,7 @@ abstract class context extends stdClass {
          $record->instanceid   = $rec->ctxinstance; unset($rec->ctxinstance);
          $record->path         = $rec->ctxpath;     unset($rec->ctxpath);
          $record->depth        = $rec->ctxdepth;    unset($rec->ctxdepth);
+         $record->tenantid     = $rec->ctxtenantid; unset($rec->ctxtenantid);
 
          return context::create_instance_from_record($record);
      }
@@ -4654,6 +4788,7 @@ abstract class context extends stdClass {
             case 'instanceid':   return $this->_instanceid;
             case 'path':         return $this->_path;
             case 'depth':        return $this->_depth;
+            case 'tenantid':     return $this->_tenantid;
 
             default:
                 debugging('Invalid context property accessed! '.$name);
@@ -4673,6 +4808,7 @@ abstract class context extends stdClass {
             case 'instanceid':   return isset($this->_instanceid);
             case 'path':         return isset($this->_path);
             case 'depth':        return isset($this->_depth);
+            case 'tenantid':     return isset($this->_tenantid);
 
             default: return false;
         }
@@ -4701,6 +4837,7 @@ abstract class context extends stdClass {
         $this->_instanceid   = $record->instanceid;
         $this->_path         = $record->path;
         $this->_depth        = $record->depth;
+        $this->_tenantid     = $record->tenantid;
     }
 
     /**
@@ -4816,6 +4953,10 @@ abstract class context extends stdClass {
     public function update_moved(context $newparent) {
         global $DB;
 
+        if ($newparent->tenantid != $this->_tenantid) {
+            throw new coding_exception('Context can not be moved to different tenant!');
+        }
+
         $frompath = $this->_path;
         $newpath  = $newparent->path . '/' . $this->_id;
 
@@ -4886,6 +5027,10 @@ abstract class context extends stdClass {
     public function delete_content() {
         global $CFG, $DB;
 
+        if ($this->_contextlevel == CONTEXT_SYSTEM) {
+            throw new coding_exception('Content of system context can not be deleted');
+        }
+
         blocks_delete_all_for_context($this->_id);
         filter_delete_all_for_context($this->_id);
 
@@ -4919,6 +5064,10 @@ abstract class context extends stdClass {
     public function delete() {
         global $DB;
 
+        if ($this->_contextlevel == CONTEXT_SYSTEM) {
+            throw new coding_exception('System context can not be deleted');
+        }
+
         // double check the context still exists
         if (!$DB->record_exists('context', array('id'=>$this->_id))) {
             context::cache_remove($this);
@@ -4945,9 +5094,10 @@ abstract class context extends stdClass {
      * @param int $contextlevel
      * @param int $instanceid
      * @param string $parentpath
+     * @param int $tenantid
      * @return stdClass context record
      */
-    protected static function insert_context_record($contextlevel, $instanceid, $parentpath) {
+    protected static function insert_context_record($contextlevel, $instanceid, $parentpath, $tenantid) {
         global $DB;
 
         $record = new stdClass();
@@ -4955,6 +5105,7 @@ abstract class context extends stdClass {
         $record->instanceid   = $instanceid;
         $record->depth        = 0;
         $record->path         = null; //not known before insert
+        $record->tenantid     = $tenantid;
 
         $record->id = $DB->insert_record('context', $record);
 
@@ -5027,8 +5178,8 @@ abstract class context extends stdClass {
 
         $sql = "SELECT ctx.*
                   FROM {context} ctx
-                 WHERE ctx.path LIKE ?";
-        $params = array($this->_path.'/%');
+                 WHERE ctx.path LIKE ? AND ctx.tenantid = ?";
+        $params = array($this->_path.'/%', $this->_tenantid);
         $records = $DB->get_records_sql($sql, $params);
 
         $result = array();
@@ -5226,6 +5377,7 @@ class context_helper extends context {
 
     private static $alllevels = array(
             CONTEXT_SYSTEM    => 'context_system',
+            CONTEXT_TENANT    => 'context_tenant',
             CONTEXT_USER      => 'context_user',
             CONTEXT_COURSECAT => 'context_coursecat',
             CONTEXT_COURSE    => 'context_course',
@@ -5348,7 +5500,7 @@ class context_helper extends context {
      * @return array (table.column=>alias, ...)
      */
     public static function get_preload_record_columns($tablealias) {
-        return array("$tablealias.id"=>"ctxid", "$tablealias.path"=>"ctxpath", "$tablealias.depth"=>"ctxdepth", "$tablealias.contextlevel"=>"ctxlevel", "$tablealias.instanceid"=>"ctxinstance");
+        return array("$tablealias.id"=>"ctxid", "$tablealias.path"=>"ctxpath", "$tablealias.depth"=>"ctxdepth", "$tablealias.contextlevel"=>"ctxlevel", "$tablealias.instanceid"=>"ctxinstance", "$tablealias.tenantid"=>"ctxtenantid");
     }
 
     /**
@@ -5361,7 +5513,7 @@ class context_helper extends context {
      * @return string
      */
     public static function get_preload_record_columns_sql($tablealias) {
-        return "$tablealias.id AS ctxid, $tablealias.path AS ctxpath, $tablealias.depth AS ctxdepth, $tablealias.contextlevel AS ctxlevel, $tablealias.instanceid AS ctxinstance";
+        return "$tablealias.id AS ctxid, $tablealias.path AS ctxpath, $tablealias.depth AS ctxdepth, $tablealias.contextlevel AS ctxlevel, $tablealias.instanceid AS ctxinstance, $tablealias.tenantid AS ctxtenantid";
     }
 
     /**
@@ -5413,6 +5565,27 @@ class context_helper extends context {
             $context->delete();
         } else {
             // we should try to purge the cache anyway
+        }
+    }
+
+    /**
+     * Returns the top most context for tenant or global site.
+     *
+     * @static
+     * @param int|null $tenantid
+     * @return context_system|context_tenant
+     */
+    public static function top_context($tenantid = null) {
+        global $TENANT;
+
+        if (is_null($tenantid)) {
+            $tenantid = $TENANT->id;
+        }
+
+        if ($tenantid) {
+            return context_tenant::instance($tenantid);
+        } else {
+            return context_system::instance();
         }
     }
 
@@ -5540,11 +5713,11 @@ class context_system extends context {
                 $record->instanceid   = 0;
                 $record->path         = '/'.SYSCONTEXTID;
                 $record->depth        = 1;
+                $record->tenantid     = 0;
                 context::$systemcontext = new context_system($record);
             }
             return context::$systemcontext;
         }
-
 
         try {
             // we ignore the strictness completely because system context must except except during install
@@ -5564,6 +5737,7 @@ class context_system extends context {
             $record->instanceid   = 0;
             $record->depth        = 1;
             $record->path         = null; //not known before insert
+            $record->tenantid     = 0;
 
             try {
                 if ($DB->count_records('context')) {
@@ -5589,10 +5763,11 @@ class context_system extends context {
             debugging('Invalid system context detected');
         }
 
-        if ($record->depth != 1 or $record->path != '/'.$record->id) {
+        if ($record->depth != 1 or $record->path != '/'.$record->id or $record->tenantid != 0) {
             // fix path if necessary, initial install or path reset
-            $record->depth = 1;
-            $record->path  = '/'.$record->id;
+            $record->depth    = 1;
+            $record->path     = '/'.$record->id;
+            $record->tenantid = 0;
             $DB->update_record('context', $record);
         }
 
@@ -5605,7 +5780,7 @@ class context_system extends context {
     }
 
     /**
-     * Returns all site contexts except the system context, DO NOT call on production servers!!
+     * Returns all site contexts except the system context and tenants, DO NOT call on production servers!!
      *
      * Contexts are not cached.
      *
@@ -5620,7 +5795,7 @@ class context_system extends context {
         // and hope we don't OOM in the process - don't cache
         $sql = "SELECT c.*
                   FROM {context} c
-                 WHERE contextlevel > ".CONTEXT_SYSTEM;
+                 WHERE contextlevel > ".CONTEXT_SYSTEM." AND c.tenantid = 0";
         $records = $DB->get_records_sql($sql);
 
         $result = array();
@@ -5669,12 +5844,170 @@ class context_system extends context {
             debugging('Invalid SYSCONTEXTID detected');
         }
 
-        if ($record->depth != 1 or $record->path != '/'.$record->id) {
+        if ($record->depth != 1 or $record->path != '/'.$record->id or $record->tenantid != 0) {
             // fix path if necessary, initial install or path reset
             $record->depth    = 1;
             $record->path     = '/'.$record->id;
+            $record->tenantid = 0;
             $DB->update_record('context', $record);
         }
+    }
+}
+
+
+/**
+ * Tenant context class
+ * @author Petr Skoda (http://skodak.org)
+ */
+class context_tenant extends context {
+    /**
+     * Please use context_tenant::instance($tenantid) if you need the instance of context.
+     * Alternatively if you know only the context id use context::instance_by_id($contextid)
+     *
+     * @param stdClass $record
+     */
+    protected function __construct(stdClass $record) {
+        parent::__construct($record);
+        if ($record->contextlevel != CONTEXT_TENANT) {
+            throw new coding_exception('Invalid $record->contextlevel in context_tenant constructor.');
+        }
+    }
+
+    /**
+     * Returns human readable context level name.
+     *
+     * @static
+     * @return string the human readable context level name.
+     */
+    protected static function get_level_name() {
+        return get_string('tenant');
+    }
+
+    /**
+     * Returns human readable context identifier.
+     *
+     * @param boolean $withprefix whether to prefix the name of the context with User
+     * @param boolean $short does not apply to tenant context
+     * @return string the human readable context name.
+     */
+    public function get_context_name($withprefix = true, $short = false) {
+        global $DB;
+
+        $name = '';
+        $tenant = $DB->get_record('tenant', array('id'=>$this->_instanceid), '*', MUST_EXIST);
+        if ($withprefix){
+            $name = get_string('tenant').': ';
+        }
+        $name .= format_string($tenant->fullname, true, array('context'=>$this));
+        return $name;
+    }
+
+    /**
+     * Returns the most relevant URL for this context.
+     *
+     * @return moodle_url
+     */
+    public function get_url() {
+        global $DB;
+
+        $tenant = $DB->get_record('tenant', array('id'=>$this->_instanceid), '*', MUST_EXIST);
+        return new moodle_url($tenant->wwwroot.'/');
+    }
+
+    /**
+     * Returns array of relevant context capability records.
+     *
+     * @return array
+     */
+    public function get_capabilities() {
+        global $DB;
+
+        $sort = 'ORDER BY contextlevel,component,name';   // To group them sensibly for display
+
+        $params = array();
+        $sql = "SELECT *
+                  FROM {capabilities}";
+
+        return $DB->get_records_sql($sql.' '.$sort, $params);
+    }
+
+    /**
+     * Returns tenant context instance.
+     *
+     * @static
+     * @param int $instanceid
+     * @param int $strictness
+     * @return context_tenant context instance
+     */
+    public static function instance($instanceid, $strictness = MUST_EXIST) {
+        global $DB;
+
+        if ($context = context::cache_get(CONTEXT_TENANT, $instanceid)) {
+            return $context;
+        }
+
+        if (!$record = $DB->get_record('context', array('contextlevel'=>CONTEXT_TENANT, 'instanceid'=>$instanceid))) {
+            if ($tenant = $DB->get_record('tenant', array('id'=>$instanceid), 'id', $strictness)) {
+                $record = context::insert_context_record(CONTEXT_TENANT, $tenant->id, '/'.SYSCONTEXTID, $tenant->id);
+            }
+        }
+
+        if ($record) {
+            $context = new context_tenant($record);
+            context::cache_add($context);
+            return $context;
+        }
+
+        return false;
+    }
+
+    /**
+     * Create missing context instances at tenant context level
+     * @static
+     */
+    protected static function create_level_instances() {
+        global $DB;
+
+        $sql = "INSERT INTO {context} (contextlevel, instanceid, tenantid)
+                SELECT ".CONTEXT_TENANT.", t.id, t.id
+                  FROM {tenant} t
+                 WHERE NOT EXISTS (SELECT 'x'
+                                     FROM {context} cx
+                                    WHERE t.id = cx.instanceid AND cx.contextlevel=".CONTEXT_TENANT.")";
+        $DB->execute($sql);
+    }
+
+    /**
+     * Returns sql necessary for purging of stale context instances.
+     *
+     * @static
+     * @return string cleanup SQL
+     */
+    protected static function get_cleanup_sql() {
+        $sql = "
+                  SELECT c.*
+                    FROM {context} c
+         LEFT OUTER JOIN {tenant} t ON (c.instanceid = t.id)
+                   WHERE t.id IS NULL AND c.contextlevel = ".CONTEXT_TENANT."
+               ";
+
+        return $sql;
+    }
+
+    /**
+     * Rebuild context paths and depths at tenant context level.
+     *
+     * @static
+     * @param $force
+     */
+    protected static function build_paths($force) {
+        global $DB;
+
+        $sql = "UPDATE {context}
+                   SET depth = 2,
+                       path = ".$DB->sql_concat("'/".SYSCONTEXTID."/'", 'id')."
+                 WHERE contextlevel=".CONTEXT_TENANT;
+        $DB->execute($sql);
     }
 }
 
@@ -5734,9 +6067,9 @@ class context_user extends context {
      * @return moodle_url
      */
     public function get_url() {
-        global $COURSE;
+        global $COURSE, $SITE;
 
-        if ($COURSE->id == SITEID) {
+        if ($COURSE->id == $SITE->id) {
             $url = new moodle_url('/user/profile.php', array('id'=>$this->_instanceid));
         } else {
             $url = new moodle_url('/user/view.php', array('id'=>$this->_instanceid, 'courseid'=>$COURSE->id));
@@ -5780,8 +6113,13 @@ class context_user extends context {
         }
 
         if (!$record = $DB->get_record('context', array('contextlevel'=>CONTEXT_USER, 'instanceid'=>$instanceid))) {
-            if ($user = $DB->get_record('user', array('id'=>$instanceid, 'deleted'=>0), 'id', $strictness)) {
-                $record = context::insert_context_record(CONTEXT_USER, $user->id, '/'.SYSCONTEXTID, 0);
+            if ($user = $DB->get_record('user', array('id'=>$instanceid, 'deleted'=>0), 'id,tenantid', $strictness)) {
+                if ($user->tenantid) {
+                    $tenantcontext = context_tenant::instance($user->tenantid);
+                    $record = context::insert_context_record(CONTEXT_USER, $user->id, $tenantcontext->path, $user->tenantid);
+                } else {
+                    $record = context::insert_context_record(CONTEXT_USER, $user->id, '/'.SYSCONTEXTID, 0);
+                }
             }
         }
 
@@ -5801,8 +6139,8 @@ class context_user extends context {
     protected static function create_level_instances() {
         global $DB;
 
-        $sql = "INSERT INTO {context} (contextlevel, instanceid)
-                SELECT ".CONTEXT_USER.", u.id
+        $sql = "INSERT INTO {context} (contextlevel, instanceid, tenantid)
+                SELECT ".CONTEXT_USER.", u.id, u.tenantid
                   FROM {user} u
                  WHERE u.deleted = 0
                        AND NOT EXISTS (SELECT 'x'
@@ -5939,12 +6277,20 @@ class context_coursecat extends context {
         }
 
         if (!$record = $DB->get_record('context', array('contextlevel'=>CONTEXT_COURSECAT, 'instanceid'=>$instanceid))) {
-            if ($category = $DB->get_record('course_categories', array('id'=>$instanceid), 'id,parent', $strictness)) {
+            if ($category = $DB->get_record('course_categories', array('id'=>$instanceid), 'id,parent,tenantid', $strictness)) {
                 if ($category->parent) {
                     $parentcontext = context_coursecat::instance($category->parent);
-                    $record = context::insert_context_record(CONTEXT_COURSECAT, $category->id, $parentcontext->path);
+                    if ($parentcontext->tenantid != $category->tenantid) {
+                        throw new coding_exception('Invalid tenant id in category '.$category->id.' or in parent category');
+                    }
+                    $record = context::insert_context_record(CONTEXT_COURSECAT, $category->id, $parentcontext->path, $parentcontext->tenantid);
                 } else {
-                    $record = context::insert_context_record(CONTEXT_COURSECAT, $category->id, '/'.SYSCONTEXTID, 0);
+                    if ($category->tenantid) {
+                        $tenantcontext = context_tenant::instance($category->tenantid);
+                        $record = context::insert_context_record(CONTEXT_COURSECAT, $category->id, $tenantcontext->path, $tenantcontext->tenantid);
+                    } else {
+                        $record = context::insert_context_record(CONTEXT_COURSECAT, $category->id, '/'.SYSCONTEXTID, 0);
+                    }
                 }
             }
         }
@@ -5969,8 +6315,8 @@ class context_coursecat extends context {
 
         $sql = "SELECT ctx.*
                   FROM {context} ctx
-                 WHERE ctx.path LIKE ? AND (ctx.depth = ? OR ctx.contextlevel = ?)";
-        $params = array($this->_path.'/%', $this->depth+1, CONTEXT_COURSECAT);
+                 WHERE ctx.path LIKE ? AND (ctx.depth = ? OR ctx.contextlevel = ?) AND ctx.tenantid = ?";
+        $params = array($this->_path.'/%', $this->depth+1, CONTEXT_COURSECAT, $this->_tenantid);
         $records = $DB->get_records_sql($sql, $params);
 
         $result = array();
@@ -5988,8 +6334,8 @@ class context_coursecat extends context {
     protected static function create_level_instances() {
         global $DB;
 
-        $sql = "INSERT INTO {context} (contextlevel, instanceid)
-                SELECT ".CONTEXT_COURSECAT.", cc.id
+        $sql = "INSERT INTO {context} (contextlevel, instanceid, tenantid)
+                SELECT ".CONTEXT_COURSECAT.", cc.id, cc.tenantid
                   FROM {course_categories} cc
                  WHERE NOT EXISTS (SELECT 'x'
                                      FROM {context} cx
@@ -6106,8 +6452,9 @@ class context_course extends context {
     public function get_context_name($withprefix = true, $short = false) {
         global $DB;
 
+        $site = get_site($this->_tenantid);
         $name = '';
-        if ($this->_instanceid == SITEID) {
+        if ($this->_instanceid == $site->id) {
             $name = get_string('frontpage', 'admin');
         } else {
             if ($course = $DB->get_record('course', array('id'=>$this->_instanceid))) {
@@ -6130,7 +6477,8 @@ class context_course extends context {
      * @return moodle_url
      */
     public function get_url() {
-        if ($this->_instanceid != SITEID) {
+        $site = get_site($this->_tenantid);
+        if ($this->_instanceid != $site->id) {
             return new moodle_url('/course/view.php', array('id'=>$this->_instanceid));
         }
 
@@ -6181,12 +6529,20 @@ class context_course extends context {
         }
 
         if (!$record = $DB->get_record('context', array('contextlevel'=>CONTEXT_COURSE, 'instanceid'=>$instanceid))) {
-            if ($course = $DB->get_record('course', array('id'=>$instanceid), 'id,category', $strictness)) {
+            if ($course = $DB->get_record('course', array('id'=>$instanceid), 'id,category,tenantid', $strictness)) {
                 if ($course->category) {
                     $parentcontext = context_coursecat::instance($course->category);
-                    $record = context::insert_context_record(CONTEXT_COURSE, $course->id, $parentcontext->path);
+                    if ($parentcontext->tenantid != $course->tenantid) {
+                        throw new coding_exception('Invalid tenant id in course '.$course->id.' or in parent course');
+                    }
+                    $record = context::insert_context_record(CONTEXT_COURSE, $course->id, $parentcontext->path, $parentcontext->tenantid);
                 } else {
-                    $record = context::insert_context_record(CONTEXT_COURSE, $course->id, '/'.SYSCONTEXTID, 0);
+                    if ($course->tenantid) {
+                        $tenantcontext = context_tenant::instance($course->tenantid);
+                        $record = context::insert_context_record(CONTEXT_COURSE, $course->id, $tenantcontext->path, $tenantcontext->tenantid);
+                    } else {
+                        $record = context::insert_context_record(CONTEXT_COURSE, $course->id, '/'.SYSCONTEXTID, 0);
+                    }
                 }
             }
         }
@@ -6207,8 +6563,8 @@ class context_course extends context {
     protected static function create_level_instances() {
         global $DB;
 
-        $sql = "INSERT INTO {context} (contextlevel, instanceid)
-                SELECT ".CONTEXT_COURSE.", c.id
+        $sql = "INSERT INTO {context} (contextlevel, instanceid, tenantid)
+                SELECT ".CONTEXT_COURSE.", c.id, c.tenantid
                   FROM {course} c
                  WHERE NOT EXISTS (SELECT 'x'
                                      FROM {context} cx
@@ -6442,7 +6798,7 @@ class context_module extends context {
         if (!$record = $DB->get_record('context', array('contextlevel'=>CONTEXT_MODULE, 'instanceid'=>$instanceid))) {
             if ($cm = $DB->get_record('course_modules', array('id'=>$instanceid), 'id,course', $strictness)) {
                 $parentcontext = context_course::instance($cm->course);
-                $record = context::insert_context_record(CONTEXT_MODULE, $cm->id, $parentcontext->path);
+                $record = context::insert_context_record(CONTEXT_MODULE, $cm->id, $parentcontext->path, $parentcontext->tenantid);
             }
         }
 
@@ -6462,9 +6818,10 @@ class context_module extends context {
     protected static function create_level_instances() {
         global $DB;
 
-        $sql = "INSERT INTO {context} (contextlevel, instanceid)
-                SELECT ".CONTEXT_MODULE.", cm.id
+        $sql = "INSERT INTO {context} (contextlevel, instanceid, tenantid)
+                SELECT ".CONTEXT_MODULE.", cm.id, c.tenantid
                   FROM {course_modules} cm
+                  JOIN {course} c ON (c.id = cm.course)
                  WHERE NOT EXISTS (SELECT 'x'
                                      FROM {context} cx
                                     WHERE cm.id = cx.instanceid AND cx.contextlevel=".CONTEXT_MODULE.")";
@@ -6647,7 +7004,7 @@ class context_block extends context {
         if (!$record = $DB->get_record('context', array('contextlevel'=>CONTEXT_BLOCK, 'instanceid'=>$instanceid))) {
             if ($bi = $DB->get_record('block_instances', array('id'=>$instanceid), 'id,parentcontextid', $strictness)) {
                 $parentcontext = context::instance_by_id($bi->parentcontextid);
-                $record = context::insert_context_record(CONTEXT_BLOCK, $bi->id, $parentcontext->path);
+                $record = context::insert_context_record(CONTEXT_BLOCK, $bi->id, $parentcontext->path, $parentcontext->tenantid);
             }
         }
 
@@ -6675,13 +7032,41 @@ class context_block extends context {
     protected static function create_level_instances() {
         global $DB;
 
-        $sql = "INSERT INTO {context} (contextlevel, instanceid)
-                SELECT ".CONTEXT_BLOCK.", bi.id
+        if (!$DB->record_exists_select('context', "tenantid > 0")) {
+            $sql = "INSERT INTO {context} (contextlevel, instanceid, tenantid)
+                SELECT ".CONTEXT_BLOCK.", bi.id, 0
+                  FROM {block_instances} bi
+                 WHERE NOT EXISTS (SELECT 'x'
+                                     FROM {context} cx
+                                    WHERE bi.id = cx.instanceid AND cx.contextlevel=".CONTEXT_BLOCK.")";
+            $DB->execute($sql);
+            return;
+        }
+
+        // this is going to be a bit slower, but luckily this was used mainly during 1.7 upgrade...
+
+        $trans = $DB->start_delegated_transaction();
+        $sql = "INSERT INTO {context} (contextlevel, instanceid, tenantid)
+                SELECT ".CONTEXT_BLOCK.", bi.id, -1
                   FROM {block_instances} bi
                  WHERE NOT EXISTS (SELECT 'x'
                                      FROM {context} cx
                                     WHERE bi.id = cx.instanceid AND cx.contextlevel=".CONTEXT_BLOCK.")";
         $DB->execute($sql);
+
+        $sql = "SELECT c.id, pc.tenantid
+                  FROM {context} c
+                  JOIN {block_instances} bi ON (bi.id = c.instanceid AND c.contextlevel=".CONTEXT_BLOCK.")
+                  JOIN {context} pc ON (pc.id = bi.parentcontextid)
+                 WHERE c.tenantid = -1";
+
+        $ctxs = $DB->get_recordset_sql($sql);
+        foreach ($ctxs as $ctx) {
+            $DB->set_field('context', 'tenantid', $ctx->tenantid, array('id'=>$ctx->id));
+        }
+        $ctxs->close();
+
+        $trans->allow_commit();
     }
 
     /**
@@ -6722,7 +7107,7 @@ class context_block extends context {
                     SELECT ctx.id, ".$DB->sql_concat('pctx.path', "'/'", 'ctx.id').", pctx.depth+1
                       FROM {context} ctx
                       JOIN {block_instances} bi ON (bi.id = ctx.instanceid AND ctx.contextlevel = ".CONTEXT_BLOCK.")
-                      JOIN {context} pctx ON (pctx.id = bi.parentcontextid)
+                      JOIN {context} pctx ON (pctx.id = bi.parentcontextid AND ctx.tenantid = pctx.tenantid)
                      WHERE (pctx.path IS NOT NULL AND pctx.depth > 0)
                            $ctxemptyclause";
             $trans = $DB->start_delegated_transaction();

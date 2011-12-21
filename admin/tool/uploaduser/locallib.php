@@ -343,8 +343,9 @@ function uu_supported_auths() {
  * @return array
  */
 function uu_allowed_roles() {
+    global $SITE;
     // let's cheat a bit, frontpage is guaranteed to exist and has the same list of roles ;-)
-    $roles = get_assignable_roles(get_context_instance(CONTEXT_COURSE, SITEID), ROLENAME_ORIGINALANDSHORT);
+    $roles = get_assignable_roles(get_context_instance(CONTEXT_COURSE, $SITE->id), ROLENAME_ORIGINALANDSHORT);
     return array_reverse($roles, true);
 }
 
@@ -353,7 +354,8 @@ function uu_allowed_roles() {
  * @return array
  */
 function uu_allowed_roles_cache() {
-    $allowedroles = get_assignable_roles(get_context_instance(CONTEXT_COURSE, SITEID), ROLENAME_SHORT);
+    global $SITE;
+    $allowedroles = get_assignable_roles(get_context_instance(CONTEXT_COURSE, $SITE->id), ROLENAME_SHORT);
     foreach ($allowedroles as $rid=>$rname) {
         $rolecache[$rid] = new stdClass();
         $rolecache[$rid]->id   = $rid;

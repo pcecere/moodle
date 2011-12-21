@@ -38,9 +38,8 @@ if ($cancel) {
 //HTTPS is required in this page when $CFG->loginhttps enabled
 $PAGE->https_required();
 
-$context = get_context_instance(CONTEXT_SYSTEM);
 $PAGE->set_url("$CFG->httpswwwroot/login/index.php");
-$PAGE->set_context($context);
+$PAGE->set_context(context_helper::top_context());
 $PAGE->set_pagelayout('login');
 
 /// Initialize variables
@@ -173,7 +172,7 @@ if ($frm and isset($frm->username)) {                             // Login WITH 
         }
 
     /// Let's get them all set up.
-        add_to_log(SITEID, 'user', 'login', "view.php?id=$USER->id&course=".SITEID,
+        add_to_log($SITE->id, 'user', 'login', "view.php?id=$USER->id&course=".$SITE->id,
                    $user->id, 0, $user->id);
         complete_user_login($user);
 

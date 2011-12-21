@@ -31,7 +31,7 @@ require_once($CFG->libdir.'/formslib.php');
 
 class recent_form extends moodleform {
     function definition() {
-        global $CFG, $COURSE, $USER;
+        global $CFG, $COURSE, $USER, $SITE;
 
         $mform =& $this->_form;
         $context = get_context_instance(CONTEXT_COURSE, $COURSE->id);
@@ -64,7 +64,7 @@ class recent_form extends moodleform {
             }
         }
 
-        if ($COURSE->id == SITEID) {
+        if ($COURSE->id == $SITE->id) {
             $viewparticipants = has_capability('moodle/site:viewparticipants', get_context_instance(CONTEXT_SYSTEM));
         } else {
             $viewparticipants = has_capability('moodle/course:viewparticipants', $context);

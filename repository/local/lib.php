@@ -42,7 +42,7 @@ class repository_local extends repository {
      * @return mixed
      */
     public function get_listing($encodedpath = '') {
-        global $CFG, $USER, $OUTPUT;
+        global $CFG, $USER, $OUTPUT, $SITE;
         $ret = array();
         $ret['dynload'] = true;
         $ret['nosearch'] = true;
@@ -67,10 +67,10 @@ class repository_local extends repository {
             $component = null;
             if (!empty($this->context)) {
                 list($context, $course, $cm) = get_context_info_array($this->context->id);
-                $courseid = is_object($course) ? $course->id : SITEID;
+                $courseid = is_object($course) ? $course->id : $SITE->id;
                 $context = get_context_instance(CONTEXT_COURSE, $courseid);
             } else {
-                $context = get_system_context();
+                $context = context_helper::top_context();
             }
         }
 

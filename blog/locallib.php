@@ -337,7 +337,7 @@ class blog_entry {
      * @return void
      */
     public function add() {
-        global $CFG, $USER, $DB;
+        global $CFG, $USER, $DB, $SITE;
 
         unset($this->id);
         $this->module       = 'blog';
@@ -353,7 +353,7 @@ class blog_entry {
 
         if (!empty($CFG->useblogassociations)) {
             $this->add_associations();
-            add_to_log(SITEID, 'blog', 'add', 'index.php?userid='.$this->userid.'&entryid='.$this->id, $this->subject);
+            add_to_log($SITE->id, 'blog', 'add', 'index.php?userid='.$this->userid.'&entryid='.$this->id, $this->subject);
         }
 
         tag_set('post', $this->id, $this->tags);
@@ -366,7 +366,7 @@ class blog_entry {
      * @return void
      */
     public function edit($params=array(), $form=null, $summaryoptions=array(), $attachmentoptions=array()) {
-        global $CFG, $USER, $DB, $PAGE;
+        global $CFG, $USER, $DB, $PAGE, $SITE;
 
         $sitecontext = get_context_instance(CONTEXT_SYSTEM);
         $entry = $this;
@@ -389,7 +389,7 @@ class blog_entry {
         $DB->update_record('post', $entry);
         tag_set('post', $entry->id, $entry->tags);
 
-        add_to_log(SITEID, 'blog', 'update', 'index.php?userid='.$USER->id.'&entryid='.$entry->id, $entry->subject);
+        add_to_log($SITE->id, 'blog', 'update', 'index.php?userid='.$USER->id.'&entryid='.$entry->id, $entry->subject);
     }
 
     /**
@@ -398,7 +398,7 @@ class blog_entry {
      * @return void
      */
     public function delete() {
-        global $DB, $USER;
+        global $DB, $USER, $SITE;
 
         $returnurl = '';
 
@@ -407,7 +407,7 @@ class blog_entry {
         $DB->delete_records('post', array('id' => $this->id));
         tag_set('post', $this->id, array());
 
-        add_to_log(SITEID, 'blog', 'delete', 'index.php?userid='. $this->userid, 'deleted blog entry with entry id# '. $this->id);
+        add_to_log($SITE->id, 'blog', 'delete', 'index.php?userid='. $this->userid, 'deleted blog entry with entry id# '. $this->id);
     }
 
     /**

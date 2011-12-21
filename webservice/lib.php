@@ -40,7 +40,7 @@ class webservice {
      * @return array - contains the authenticated user, token and service objects
      */
     public function authenticate_user($token) {
-        global $DB, $CFG;
+        global $DB, $CFG, $SITE;
 
         // web service must be enabled to use this script
         if (!$CFG->enablewebservices) {
@@ -54,14 +54,14 @@ class webservice {
 
         // Validate token date
         if ($token->validuntil and $token->validuntil < time()) {
-            add_to_log(SITEID, 'webservice', get_string('tokenauthlog', 'webservice'), '', get_string('invalidtimedtoken', 'webservice'), 0);
+            add_to_log($SITE->id, 'webservice', get_string('tokenauthlog', 'webservice'), '', get_string('invalidtimedtoken', 'webservice'), 0);
             $DB->delete_records('external_tokens', array('token' => $token->token));
             throw new webservice_access_exception(get_string('invalidtimedtoken', 'webservice'));
         }
 
         // Check ip
         if ($token->iprestriction and !address_in_subnet(getremoteaddr(), $token->iprestriction)) {
-            add_to_log(SITEID, 'webservice', get_string('tokenauthlog', 'webservice'), '', get_string('failedtolog', 'webservice') . ": " . getremoteaddr(), 0);
+            add_to_log($SITE->id, 'webservice', get_string('tokenauthlog', 'webservice'), '', get_string('failedtolog', 'webservice') . ": " . getremoteaddr(), 0);
             throw new webservice_access_exception(get_string('invalidiptoken', 'webservice'));
         }
 
@@ -120,19 +120,19 @@ class webservice {
 
         //only confirmed user should be able to call web service
         if (empty($user->confirmed)) {
-            add_to_log(SITEID, 'webservice', 'user unconfirmed', '', $user->username);
+            add_to_log($SITE->id, 'webservice', 'user unconfirmed', '', $user->username);
             throw new webservice_access_exception(get_string('usernotconfirmed', 'moodle', $user->username));
         }
 
         //check the user is suspended
         if (!empty($user->suspended)) {
-            add_to_log(SITEID, 'webservice', 'user suspended', '', $user->username);
+            add_to_log($SITE->id, 'webservice', 'user suspended', '', $user->username);
             throw new webservice_access_exception(get_string('usersuspended', 'webservice'));
         }
 
         //check if the auth method is nologin (in this case refuse connection)
         if ($user->auth == 'nologin') {
-            add_to_log(SITEID, 'webservice', 'nologin auth attempt with web service', '', $user->username);
+            add_to_log($SITE->id, 'webservice', 'nologin auth attempt with web service', '', $user->username);
             throw new webservice_access_exception(get_string('nologinauth', 'webservice'));
         }
 
@@ -141,7 +141,7 @@ class webservice {
         if (!empty($auth->config->expiration) and $auth->config->expiration == 1) {
             $days2expire = $auth->password_expire($user->username);
             if (intval($days2expire) < 0) {
-                add_to_log(SITEID, 'webservice', 'expired password', '', $user->username);
+                add_to_log($SITE->id, 'webservice', 'expired password', '', $user->username);
                 throw new webservice_access_exception(get_string('passwordisexpired', 'webservice'));
             }
         }
@@ -729,7 +729,7 @@ abstract class webservice_server implements webservice_server_interface {
      * @return void
      */
     protected function authenticate_user() {
-        global $CFG, $DB;
+        global $CFG, $DB, $SITE;
 
         if (!NO_MOODLE_COOKIES) {
             throw new coding_exception('Cookies must be disabled in WS servers!');
@@ -759,7 +759,7 @@ abstract class webservice_server implements webservice_server_interface {
 
             if (!$auth->user_login_webservice($this->username, $this->password)) {
                 // log failed login attempts
-                add_to_log(SITEID, 'webservice', get_string('simpleauthlog', 'webservice'), '' , get_string('failedtolog', 'webservice').": ".$this->username."/".$this->password." - ".getremoteaddr() , 0);
+                add_to_log($SITE->id, 'webservice', get_string('simpleauthlog', 'webservice'), '' , get_string('failedtolog', 'webservice').": ".$this->username."/".$this->password." - ".getremoteaddr() , 0);
                 throw new webservice_access_exception(get_string('wrongusernamepassword', 'webservice'));
             }
 
@@ -779,19 +779,19 @@ abstract class webservice_server implements webservice_server_interface {
 
         //only confirmed user should be able to call web service
         if (!empty($user->deleted)) {
-            add_to_log(SITEID, '', '', '', get_string('wsaccessuserdeleted', 'webservice', $user->username) . " - ".getremoteaddr(), 0, $user->id);
+            add_to_log($SITE->id, '', '', '', get_string('wsaccessuserdeleted', 'webservice', $user->username) . " - ".getremoteaddr(), 0, $user->id);
             throw new webservice_access_exception(get_string('wsaccessuserdeleted', 'webservice', $user->username));
         }
 
         //only confirmed user should be able to call web service
         if (empty($user->confirmed)) {
-            add_to_log(SITEID, '', '', '', get_string('wsaccessuserunconfirmed', 'webservice', $user->username) . " - ".getremoteaddr(), 0, $user->id);
+            add_to_log($SITE->id, '', '', '', get_string('wsaccessuserunconfirmed', 'webservice', $user->username) . " - ".getremoteaddr(), 0, $user->id);
             throw new webservice_access_exception(get_string('wsaccessuserunconfirmed', 'webservice', $user->username));
         }
 
         //check the user is suspended
         if (!empty($user->suspended)) {
-            add_to_log(SITEID, '', '', '', get_string('wsaccessusersuspended', 'webservice', $user->username) . " - ".getremoteaddr(), 0, $user->id);
+            add_to_log($SITE->id, '', '', '', get_string('wsaccessusersuspended', 'webservice', $user->username) . " - ".getremoteaddr(), 0, $user->id);
             throw new webservice_access_exception(get_string('wsaccessusersuspended', 'webservice', $user->username));
         }
 
@@ -804,14 +804,14 @@ abstract class webservice_server implements webservice_server_interface {
         if (!empty($auth->config->expiration) and $auth->config->expiration == 1) {
             $days2expire = $auth->password_expire($user->username);
             if (intval($days2expire) < 0 ) {
-                add_to_log(SITEID, '', '', '', get_string('wsaccessuserexpired', 'webservice', $user->username) . " - ".getremoteaddr(), 0, $user->id);
+                add_to_log($SITE->id, '', '', '', get_string('wsaccessuserexpired', 'webservice', $user->username) . " - ".getremoteaddr(), 0, $user->id);
                 throw new webservice_access_exception(get_string('wsaccessuserexpired', 'webservice', $user->username));
             }
         }
 
         //check if the auth method is nologin (in this case refuse connection)
         if ($user->auth=='nologin') {
-            add_to_log(SITEID, '', '', '', get_string('wsaccessusernologin', 'webservice', $user->username) . " - ".getremoteaddr(), 0, $user->id);
+            add_to_log($SITE->id, '', '', '', get_string('wsaccessusernologin', 'webservice', $user->username) . " - ".getremoteaddr(), 0, $user->id);
             throw new webservice_access_exception(get_string('wsaccessusernologin', 'webservice', $user->username));
         }
 
@@ -828,10 +828,10 @@ abstract class webservice_server implements webservice_server_interface {
     }
 
     protected function authenticate_by_token($tokentype){
-        global $DB;
+        global $DB, $SITE;
         if (!$token = $DB->get_record('external_tokens', array('token'=>$this->token, 'tokentype'=>$tokentype))) {
             // log failed login attempts
-            add_to_log(SITEID, 'webservice', get_string('tokenauthlog', 'webservice'), '' , get_string('failedtolog', 'webservice').": ".$this->token. " - ".getremoteaddr() , 0);
+            add_to_log($SITE->id, 'webservice', get_string('tokenauthlog', 'webservice'), '' , get_string('failedtolog', 'webservice').": ".$this->token. " - ".getremoteaddr() , 0);
             throw new webservice_access_exception(get_string('invalidtoken', 'webservice'));
         }
 
@@ -849,7 +849,7 @@ abstract class webservice_server implements webservice_server_interface {
         }
 
         if ($token->iprestriction and !address_in_subnet(getremoteaddr(), $token->iprestriction)) {
-            add_to_log(SITEID, 'webservice', get_string('tokenauthlog', 'webservice'), '' , get_string('failedtolog', 'webservice').": ".getremoteaddr() , 0);
+            add_to_log($SITE->id, 'webservice', get_string('tokenauthlog', 'webservice'), '' , get_string('failedtolog', 'webservice').": ".getremoteaddr() , 0);
             throw new webservice_access_exception(get_string('invalidiptoken', 'webservice'));
         }
 
@@ -897,6 +897,7 @@ abstract class webservice_zend_server extends webservice_server {
      * @return void
      */
     public function run() {
+        global $SITE;
         // we will probably need a lot of memory in some functions
         raise_memory_limit(MEMORY_EXTRA);
 
@@ -926,7 +927,7 @@ abstract class webservice_zend_server extends webservice_server {
         $this->zend_server->setClass($this->service_class);
 
         //log the web service request
-        add_to_log(SITEID, 'webservice', '', '' , $this->zend_class." ".getremoteaddr() , 0, $this->userid);
+        add_to_log($SITE->id, 'webservice', '', '' , $this->zend_class." ".getremoteaddr() , 0, $this->userid);
 
         //send headers
         $this->send_headers();
@@ -1336,6 +1337,7 @@ abstract class webservice_base_server extends webservice_server {
      * @return void
      */
     public function run() {
+        global $SITE;
         // we will probably need a lot of memory in some functions
         raise_memory_limit(MEMORY_EXTRA);
 
@@ -1360,7 +1362,7 @@ abstract class webservice_base_server extends webservice_server {
         $this->load_function_info();
 
         //log the web service request
-        add_to_log(SITEID, 'webservice', $this->functionname, '' , getremoteaddr() , 0, $this->userid);
+        add_to_log($SITE->id, 'webservice', $this->functionname, '' , getremoteaddr() , 0, $this->userid);
 
         // finally, execute the function - any errors are catched by the default exception handler
         $this->execute();

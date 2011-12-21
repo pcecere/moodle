@@ -63,15 +63,19 @@ $courseid = (int)array_shift($args);
 $relativepath = implode('/', $args);
 
 // security: limit access to existing course subdirectories
-$course = $DB->get_record('course', array('id'=>$courseid), '*', MUST_EXIST);
+$course = $DB->get_record('course', array('id'=>$courseid, 'tenantid'=>$TENANT->id), '*', MUST_EXIST);
+
+if ($course->tenantid != $TENANT->id) {
+    send_file_not_found();
+}
 
 if ($course->legacyfiles != 2) {
     // course files disabled
     send_file_not_found();
 }
 
-if ($course->id != SITEID) {
-    require_login($course->id, true, null, false);
+if ($course->id != $SITE->id) {
+    require_login($course, true, null, false);
 
 } else if ($CFG->forcelogin) {
     if (!empty($CFG->sitepolicy)
@@ -83,7 +87,7 @@ if ($course->id != SITEID) {
     }
 }
 
-$context = get_context_instance(CONTEXT_COURSE, $course->id);
+$context = context_course::($course->id);
 
 $fs = get_file_storage();
 

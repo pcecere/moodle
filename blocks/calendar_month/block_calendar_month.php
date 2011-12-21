@@ -10,7 +10,7 @@ class block_calendar_month extends block_base {
     }
 
     function get_content() {
-        global $USER, $CFG, $SESSION;
+        global $USER, $CFG, $SESSION, $SITE;
         $cal_m = optional_param( 'cal_m', 0, PARAM_INT );
         $cal_y = optional_param( 'cal_y', 0, PARAM_INT );
 
@@ -28,7 +28,7 @@ class block_calendar_month extends block_base {
         // when committing the /my/ stuff. Reminder to discuss and learn what it's about.
         // It definitely needs SOME comment here!
         $courseid = $this->page->course->id;
-        $issite = ($courseid == SITEID);
+        $issite = ($courseid == $SITE->id);
 
         if ($issite) {
             // Being displayed at site level. This will cause the filter to fall back to auto-detecting

@@ -68,6 +68,12 @@ $agreelicense   = optional_param('agreelicense', 0, PARAM_BOOL);
 $PAGE->set_url('/admin/index.php');
 $PAGE->set_pagelayout('admin'); // Set a default pagelayout
 
+if ($TENANT->id) {
+    //TODO: add some support for tenant overview
+    require_login();
+    die();
+}
+
 $documentationlink = '<a href="http://docs.moodle.org/en/Installation">Installation docs</a>';
 
 if (ini_get_bool('session.auto_start')) {

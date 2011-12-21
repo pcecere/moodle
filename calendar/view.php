@@ -44,14 +44,14 @@ require_once('../config.php');
 require_once($CFG->dirroot.'/course/lib.php');
 require_once($CFG->dirroot.'/calendar/lib.php');
 
-$courseid = optional_param('course', SITEID, PARAM_INT);
+$courseid = optional_param('course', $SITE->id, PARAM_INT);
 $view = optional_param('view', 'upcoming', PARAM_ALPHA);
 $day  = optional_param('cal_d', 0, PARAM_INT);
 $mon  = optional_param('cal_m', 0, PARAM_INT);
 $yr   = optional_param('cal_y', 0, PARAM_INT);
 
 $url = new moodle_url('/calendar/view.php');
-if ($courseid != SITEID) {
+if ($courseid != $SITE->id) {
     $url->param('course', $courseid);
 }
 if ($view !== 'upcoming') {
@@ -68,7 +68,7 @@ if ($yr !== 0) {
 }
 $PAGE->set_url($url);
 
-if ($courseid != SITEID && !empty($courseid)) {
+if ($courseid != $SITE->id && !empty($courseid)) {
     $course = $DB->get_record('course', array('id' => $courseid));
     $courses = array($course->id => $course);
     $issite = false;

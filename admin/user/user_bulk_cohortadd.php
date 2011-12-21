@@ -123,7 +123,7 @@ foreach ($columns as $column) {
 
 foreach ($users as $user) {
     $table->data[] = array (
-        '<a href="'.$CFG->wwwroot.'/user/view.php?id='.$user->id.'&amp;course='.SITEID.'">'.$user->fullname.'</a>',
+        '<a href="'.$CFG->wwwroot.'/user/view.php?id='.$user->id.'&amp;course='.$SITE->id.'">'.$user->fullname.'</a>',
         $user->email,
         $user->city,
         $user->country,

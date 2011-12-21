@@ -42,7 +42,7 @@ class repository_coursefiles extends repository {
      * @return mixed
      */
     public function get_listing($encodedpath = '') {
-        global $CFG, $USER, $OUTPUT;
+        global $CFG, $USER, $OUTPUT, $SITE;
         $ret = array();
         $ret['dynload'] = true;
         $ret['nosearch'] = true;
@@ -65,7 +65,7 @@ class repository_coursefiles extends repository {
             $filename = null;
             $filepath = null;
             list($context, $course, $cm) = get_context_info_array($this->context->id);
-            $courseid = is_object($course) ? $course->id : SITEID;
+            $courseid = is_object($course) ? $course->id : $SITE->id;
             $context = get_context_instance(CONTEXT_COURSE, $courseid);
         }
 

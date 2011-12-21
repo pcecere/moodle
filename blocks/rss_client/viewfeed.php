@@ -35,7 +35,7 @@ $returnurl = optional_param('returnurl', '', PARAM_LOCALURL);
 $courseid = optional_param('courseid', 0, PARAM_INTEGER);
 $rssid = required_param('rssid', PARAM_INTEGER);
 
-if ($courseid = SITEID) {
+if ($courseid = $SITE->id) {
     $courseid = 0;
 }
 if ($courseid) {

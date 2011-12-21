@@ -1208,10 +1208,15 @@ function html_is_blank($string) {
  * @param string $name the key to set
  * @param string $value the value to set (without magic quotes)
  * @param string $plugin (optional) the plugin scope, default NULL
- * @return bool true or exception
+ * @return bool success
  */
 function set_config($name, $value, $plugin=NULL) {
-    global $CFG, $DB;
+    global $CFG, $DB, $TENANT;
+
+    if (!empty($TENANT->id)) {
+        debugging('It is not allowed to change main config from the tenant site!!');
+        return false;
+    }
 
     if (empty($plugin)) {
         if (!array_key_exists($name, $CFG->config_php_settings)) {
@@ -1274,7 +1279,7 @@ function set_config($name, $value, $plugin=NULL) {
  * @return mixed hash-like object or single value, return false no config found
  */
 function get_config($plugin, $name = NULL) {
-    global $CFG, $DB;
+    global $CFG, $DB, $TENANT;
 
     // normalise component name
     if ($plugin === 'moodle' or $plugin === 'core') {
@@ -1287,6 +1292,12 @@ function get_config($plugin, $name = NULL) {
                 // setting forced in config file
                 return $CFG->forced_plugin_settings[$plugin][$name];
             } else {
+                if (!empty($TENANT->id)) {
+                    $result = $DB->get_field('config_tenants', 'value', array('tenantid'=>$TENANT->id, 'plugin'=>$plugin, 'name'=>$name));
+                    if ($result !== false) {
+                        return $result;
+                    }
+                }
                 return $DB->get_field('config_plugins', 'value', array('plugin'=>$plugin, 'name'=>$name));
             }
         } else {
@@ -1294,6 +1305,12 @@ function get_config($plugin, $name = NULL) {
                 // setting force in config file
                 return $CFG->config_php_settings[$name];
             } else {
+                if (!empty($TENANT->id)) {
+                    $result = $DB->get_field('config_tenants', 'value', array('tenantid'=>$TENANT->id, 'plugin'=>NULL, 'name'=>$name));
+                    if ($result !== false) {
+                        return $result;
+                    }
+                }
                 return $DB->get_field('config', 'value', array('name'=>$name));
             }
         }
@@ -1302,6 +1319,12 @@ function get_config($plugin, $name = NULL) {
     // the user is after a recordset
     if ($plugin) {
         $localcfg = $DB->get_records_menu('config_plugins', array('plugin'=>$plugin), '', 'name,value');
+        if (!empty($TENANT->id)) {
+            $tenantcfg = $DB->get_records_menu('config_tenants', array('tenantid'=>$TENANT->id, 'plugin'=>$plugin), '', 'name,value');
+            foreach ($tenantcfg as $k=>$v) {
+                $localcfg[$k] = $v;
+            }
+        }
         if (isset($CFG->forced_plugin_settings[$plugin])) {
             foreach($CFG->forced_plugin_settings[$plugin] as $n=>$v) {
                 if (is_null($v) or is_array($v) or is_object($v)) {
@@ -1322,6 +1345,12 @@ function get_config($plugin, $name = NULL) {
     } else {
         // this part is not really used any more, but anyway...
         $localcfg = $DB->get_records_menu('config', array(), '', 'name,value');
+        if (!empty($TENANT->id)) {
+            $tenantcfg = $DB->get_records_menu('config_tenants', array('tenantid'=>$TENANT->id, 'plugin'=>NULL), '', 'name,value');
+            foreach ($tenantcfg as $k=>$v) {
+                $localcfg[$k] = $v;
+            }
+        }
         foreach($CFG->config_php_settings as $n=>$v) {
             if (is_null($v) or is_array($v) or is_object($v)) {
                 // we do not want any extra mess here, just real settings that could be saved in db
@@ -1344,7 +1373,12 @@ function get_config($plugin, $name = NULL) {
  * @return boolean whether the operation succeeded.
  */
 function unset_config($name, $plugin=NULL) {
-    global $CFG, $DB;
+    global $CFG, $DB, $TENANT;
+
+    if (!empty($TENANT->id)) {
+        debugging('It is not allowed to change main config from the tenant site!!');
+        return false;
+    }
 
     if (empty($plugin)) {
         unset($CFG->$name);
@@ -1363,7 +1397,13 @@ function unset_config($name, $plugin=NULL) {
  * @return boolean whether the operation succeeded.
  */
 function unset_all_config_for_plugin($plugin) {
-    global $DB;
+    global $DB, $TENANT;
+
+    if (!empty($TENANT->id)) {
+        debugging('It is not allowed to change main config from the tenant site!!');
+        return false;
+    }
+
     $DB->delete_records('config_plugins', array('plugin' => $plugin));
     $like = $DB->sql_like('name', '?', true, true, false, '|');
     $params = array($DB->sql_like_escape($plugin.'_', '|') . '%');
@@ -2569,13 +2609,13 @@ function get_login_url() {
  * @return mixed Void, exit, and die depending on path
  */
 function require_login($courseorid = NULL, $autologinguest = true, $cm = NULL, $setwantsurltome = true, $preventredirect = false) {
-    global $CFG, $SESSION, $USER, $FULLME, $PAGE, $SITE, $DB, $OUTPUT;
+    global $CFG, $SESSION, $USER, $FULLME, $PAGE, $SITE, $DB, $OUTPUT, $TENANT;
 
     // setup global $COURSE, themes, language and locale
     if (!empty($courseorid)) {
         if (is_object($courseorid)) {
             $course = $courseorid;
-        } else if ($courseorid == SITEID) {
+        } else if ($courseorid == $SITE->id) {
             $course = clone($SITE);
         } else {
             $course = $DB->get_record('course', array('id' => $courseorid), '*', MUST_EXIST);
@@ -2603,6 +2643,14 @@ function require_login($courseorid = NULL, $autologinguest = true, $cm = NULL, $
         $course = $SITE;
         if ($cm) {
             throw new coding_exception('cm parameter in require_login() requires valid course parameter!');
+        }
+    }
+
+    if ($course->tenantid != $TENANT->id or $USER->tenantid != $TENANT->id) {
+        if ($preventredirect) {
+            throw new require_login_exception('Tenant access violation');
+        } else {
+            redirect($CFG->wwwroot.'/');
         }
     }
 
@@ -2638,7 +2686,7 @@ function require_login($courseorid = NULL, $autologinguest = true, $cm = NULL, $
     }
 
     // loginas as redirection if needed
-    if ($course->id != SITEID and session_is_loggedinas()) {
+    if ($course->id != $SITE->id and session_is_loggedinas()) {
         if ($USER->loginascontext->contextlevel == CONTEXT_COURSE) {
             if ($USER->loginascontext->instanceid != $course->id) {
                 print_error('loginasonecourse', '', $CFG->wwwroot.'/course/view.php?id='.$USER->loginascontext->instanceid);
@@ -2674,7 +2722,7 @@ function require_login($courseorid = NULL, $autologinguest = true, $cm = NULL, $
             throw new require_login_exception('User not fully set-up');
         }
         $SESSION->wantsurl = $FULLME;
-        redirect($CFG->wwwroot .'/user/edit.php?id='. $USER->id .'&amp;course='. SITEID);
+        redirect($CFG->wwwroot .'/user/edit.php?id='. $USER->id .'&amp;course='. $SITE->id);
     }
 
     // Make sure the USER has a sesskey set up. Used for CSRF protection.
@@ -2723,7 +2771,7 @@ function require_login($courseorid = NULL, $autologinguest = true, $cm = NULL, $
     }
 
     // make sure the course itself is not hidden
-    if ($course->id == SITEID) {
+    if ($course->id == $SITE->id) {
         // frontpage can not be hidden
     } else {
         if (is_role_switched($course->id)) {
@@ -2742,7 +2790,7 @@ function require_login($courseorid = NULL, $autologinguest = true, $cm = NULL, $
     }
 
     // is the user enrolled?
-    if ($course->id == SITEID) {
+    if ($course->id == $SITE->id) {
         // everybody is enrolled on the frontpage
 
     } else {
@@ -2872,12 +2920,12 @@ function require_login($courseorid = NULL, $autologinguest = true, $cm = NULL, $
  * @global object
  */
 function require_logout() {
-    global $USER;
+    global $USER, $SITE;
 
     $params = $USER;
 
     if (isloggedin()) {
-        add_to_log(SITEID, "user", "logout", "view.php?id=$USER->id&course=".SITEID, $USER->id, 0, $USER->id);
+        add_to_log($SITE->id, "user", "logout", "view.php?id=$USER->id&course=".$SITE->id, $USER->id, 0, $USER->id);
 
         $authsequence = get_enabled_auth_plugins(); // auths, in sequence
         foreach($authsequence as $authname) {
@@ -2911,8 +2959,8 @@ function require_logout() {
  */
 function require_course_login($courseorid, $autologinguest = true, $cm = NULL, $setwantsurltome = true, $preventredirect = false) {
     global $CFG, $PAGE, $SITE;
-    $issite = (is_object($courseorid) and $courseorid->id == SITEID)
-          or (!is_object($courseorid) and $courseorid == SITEID);
+    $issite = (is_object($courseorid) and $courseorid->id == $SITE->id)
+          or (!is_object($courseorid) and $courseorid == $SITE->id);
     if ($issite && !empty($cm) && !($cm instanceof cm_info)) {
         // note: nearly all pages call get_fast_modinfo anyway and it does not make any
         // db queries so this is not really a performance concern, however it is obviously
@@ -2965,7 +3013,7 @@ function require_course_login($courseorid, $autologinguest = true, $cm = NULL, $
                 $PAGE->set_course($PAGE->course);
             }
             //TODO: verify conditional activities here
-            user_accesstime_log(SITEID);
+            user_accesstime_log($SITE->id);
             return;
         }
 
@@ -3486,7 +3534,7 @@ function get_auth_plugin($auth) {
  * @return array
  */
 function get_enabled_auth_plugins($fix=false) {
-    global $CFG;
+    global $CFG, $TENANT;
 
     $default = array('manual', 'nologin');
 
@@ -3496,7 +3544,7 @@ function get_enabled_auth_plugins($fix=false) {
         $auths = explode(',', $CFG->auth);
     }
 
-    if ($fix) {
+    if ($fix and empty($TENANT->id)) {
         $auths = array_unique($auths);
         foreach($auths as $k=>$authname) {
             if (!exists_auth_plugin($authname) or in_array($authname, $default)) {
@@ -3842,19 +3890,19 @@ function guest_user() {
  * @return user|flase A {@link $USER} object or false if error
  */
 function authenticate_user_login($username, $password) {
-    global $CFG, $DB;
+    global $CFG, $DB, $SITE;
 
     $authsenabled = get_enabled_auth_plugins();
 
     if ($user = get_complete_user_data('username', $username, $CFG->mnet_localhost_id)) {
         $auth = empty($user->auth) ? 'manual' : $user->auth;  // use manual if auth not set
         if (!empty($user->suspended)) {
-            add_to_log(SITEID, 'login', 'error', 'index.php', $username);
+            add_to_log($SITE->id, 'login', 'error', 'index.php', $username);
             error_log('[client '.getremoteaddr()."]  $CFG->wwwroot  Suspended Login:  $username  ".$_SERVER['HTTP_USER_AGENT']);
             return false;
         }
         if ($auth=='nologin' or !is_enabled_auth($auth)) {
-            add_to_log(SITEID, 'login', 'error', 'index.php', $username);
+            add_to_log($SITE->id, 'login', 'error', 'index.php', $username);
             error_log('[client '.getremoteaddr()."]  $CFG->wwwroot  Disabled Login:  $username  ".$_SERVER['HTTP_USER_AGENT']);
             return false;
         }
@@ -3919,7 +3967,7 @@ function authenticate_user_login($username, $password) {
 
         if (!empty($user->suspended)) {
             // just in case some auth plugin suspended account
-            add_to_log(SITEID, 'login', 'error', 'index.php', $username);
+            add_to_log($SITE->id, 'login', 'error', 'index.php', $username);
             error_log('[client '.getremoteaddr()."]  $CFG->wwwroot  Suspended Login:  $username  ".$_SERVER['HTTP_USER_AGENT']);
             return false;
         }
@@ -3928,7 +3976,7 @@ function authenticate_user_login($username, $password) {
     }
 
     // failed if all the plugins have failed
-    add_to_log(SITEID, 'login', 'error', 'index.php', $username);
+    add_to_log($SITE->id, 'login', 'error', 'index.php', $username);
     if (debugging('', DEBUG_ALL)) {
         error_log('[client '.getremoteaddr()."]  $CFG->wwwroot  Failed Login:  $username  ".$_SERVER['HTTP_USER_AGENT']);
     }
@@ -4265,7 +4313,7 @@ function delete_course($courseorid, $showfeedback = true) {
     $context = get_context_instance(CONTEXT_COURSE, $courseid);
 
     // frontpage course can not be deleted!!
-    if ($courseid == SITEID) {
+    if (empty($course->category)) { // DO NOT USE $SITE->id here!
         return false;
     }
 
@@ -4959,10 +5007,6 @@ function get_mailer($action='get') {
 /**
  * Send an email to a specified user
  *
- * @global object
- * @global string
- * @global string IdentityProvider(IDP) URL user hits to jump to mnet peer.
- * @uses SITEID
  * @param stdClass $user  A {@link $USER} object
  * @param stdClass $from A {@link $USER} object
  * @param string $subject plain text subject line of the email
@@ -4979,7 +5023,7 @@ function get_mailer($action='get') {
  */
 function email_to_user($user, $from, $subject, $messagetext, $messagehtml='', $attachment='', $attachname='', $usetrueaddress=true, $replyto='', $replytoname='', $wordwrapwidth=79) {
 
-    global $CFG, $FULLME;
+    global $CFG, $FULLME, $SITE;
 
     if (empty($user) || empty($user->email)) {
         mtrace('Error: lib/moodlelib.php email_to_user(): User is null or has no email');
@@ -5157,7 +5201,7 @@ function email_to_user($user, $from, $subject, $messagetext, $messagehtml='', $a
         return true;
     } else {
         mtrace('ERROR: '. $mail->ErrorInfo);
-        add_to_log(SITEID, 'library', 'mailer', $FULLME, 'ERROR: '. $mail->ErrorInfo);
+        add_to_log($SITE->id, 'library', 'mailer', $FULLME, 'ERROR: '. $mail->ErrorInfo);
         if (!empty($mail->SMTPDebug)) {
             echo '</pre>';
         }
@@ -5828,9 +5872,9 @@ function clean_filename($string) {
  * @return string
  */
 function current_language() {
-    global $CFG, $USER, $SESSION, $COURSE;
+    global $CFG, $USER, $SESSION, $COURSE, $SITE;
 
-    if (!empty($COURSE->id) and $COURSE->id != SITEID and !empty($COURSE->lang)) {    // Course language can override all other settings for this page
+    if (!empty($COURSE->id) and $COURSE->id != $SITE->id and !empty($COURSE->lang)) {    // Course language can override all other settings for this page
         $return = $COURSE->lang;
 
     } else if (!empty($SESSION->lang)) {    // Session language can override other settings
@@ -10227,9 +10271,11 @@ function object_array_unique($array, $keep_key_assoc = true) {
  * @return boolean
  */
 function is_primary_admin($userid){
-    $primaryadmin =  get_admin();
+    if (!$primaryadmin = get_admin()) {
+        return false;
+    }
 
-    if($userid == $primaryadmin->id){
+    if ($userid == $primaryadmin->id){
         return true;
     }else{
         return false;

@@ -29,14 +29,14 @@ require_once('../config.php');
 require_once($CFG->dirroot.'/blog/lib.php');
 require_once('preferences_form.php');
 
-$courseid = optional_param('courseid', SITEID, PARAM_INT);
+$courseid = optional_param('courseid', $SITE->id, PARAM_INT);
 $modid    = optional_param('modid', null, PARAM_INT);
 $userid   = optional_param('userid', null, PARAM_INT);
 $tagid    = optional_param('tagid', null, PARAM_INT);
 $groupid      = optional_param('groupid', null, PARAM_INT);
 
 $url = new moodle_url('/blog/preferences.php');
-if ($courseid !== SITEID) {
+if ($courseid !== $SITE->id) {
     $url->param('courseid', $courseid);
 }
 if ($modid !== null) {
@@ -55,7 +55,7 @@ if ($groupid !== null) {
 $PAGE->set_url($url);
 $PAGE->set_pagelayout('standard');
 
-if ($courseid == SITEID) {
+if ($courseid == $SITE->id) {
     require_login();
     $context = get_context_instance(CONTEXT_SYSTEM);
     $PAGE->set_context($context);

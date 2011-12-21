@@ -762,14 +762,20 @@ class moodle_page {
 
     /**
      * Set the main context to which this page belongs.
-     * @param object $context a context object, normally obtained with get_context_instance.
+     * @param context $context a context object, normally obtained with get_context_instance.
      */
-    public function set_context($context) {
+    public function set_context(context $context = null) {
+        global $TENANT;
+
         if ($context === null) {
             // extremely ugly hack which sets context to some value in order to prevent warnings,
             // use only for core error handling!!!!
             if (!$this->_context) {
-                $this->_context = get_context_instance(CONTEXT_SYSTEM);
+                if ($TENANT->id) {
+                    $this->_context = context_tenant::instance($TENANT->id);
+                } else {
+                    $this->_context = context_system::instance();
+                }
             }
             return;
         }
@@ -778,7 +784,7 @@ class moodle_page {
         if (isset($this->_context)) {
             if ($context->id == $this->_context->id) {
                 // fine - no change needed
-            } else if ($this->_context->contextlevel == CONTEXT_SYSTEM or $this->_context->contextlevel == CONTEXT_COURSE) {
+            } else if ($this->_context->contextlevel == CONTEXT_SYSTEM or $this->_context->contextlevel == CONTEXT_TENANT or $this->_context->contextlevel == CONTEXT_COURSE) {
                 // hmm - not ideal, but it might produce too many warnings due to the design of require_login
             } else if ($this->_context->contextlevel == CONTEXT_MODULE and $this->_context->id == get_parent_contextid($context)) {
                 // hmm - most probably somebody did require_login() and after that set the block context
@@ -787,6 +793,10 @@ class moodle_page {
                 // because we might have used the context already such as in text filter in page title
                 debugging('Coding problem: unsupported modification of PAGE->context from '.$this->_context->contextlevel.' to '.$context->contextlevel);
             }
+        }
+
+        if ($TENANT->id != $context->tenantid) {
+            throw new tenant_access_exception();
         }
 
         $this->_context = $context;

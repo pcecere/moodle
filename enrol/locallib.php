@@ -307,11 +307,13 @@ class course_enrolment_manager {
         $countfields = 'SELECT COUNT(1)';
         $sql = " FROM {user} u
                 WHERE $wherecondition
+                      AND u.tenantid = :tenantid
                       AND u.id NOT IN (SELECT ue.userid
                                          FROM {user_enrolments} ue
                                          JOIN {enrol} e ON (e.id = ue.enrolid AND e.id = :enrolid))";
         $order = ' ORDER BY u.lastname ASC, u.firstname ASC';
         $params['enrolid'] = $enrolid;
+        $params['tenantid'] = $this->context->tenantid;
         $totalusers = $DB->count_records_sql($countfields . $sql, $params);
         $availableusers = $DB->get_records_sql($fields . $sql . $order, $params, $page*$perpage, $perpage);
         return array('totalusers'=>$totalusers, 'users'=>$availableusers);
@@ -354,6 +356,7 @@ class course_enrolment_manager {
         $countfields = 'SELECT COUNT(u.id)';
         $sql   = " FROM {user} u
                   WHERE $wherecondition
+                    AND u.tenantid = :tenantid
                     AND u.id NOT IN (
                            SELECT u.id
                              FROM {role_assignments} r, {user} u
@@ -362,6 +365,7 @@ class course_enrolment_manager {
         $order = ' ORDER BY lastname ASC, firstname ASC';
 
         $params['contextid'] = $this->context->id;
+        $params['tenantid'] = $this->context->tenantid;
         $totalusers = $DB->count_records_sql($countfields . $sql, $params);
         $availableusers = $DB->get_records_sql($fields . $sql . $order, $params, $page*$perpage, $perpage);
         return array('totalusers'=>$totalusers, 'users'=>$availableusers);

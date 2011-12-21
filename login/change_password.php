@@ -27,7 +27,7 @@
 require('../config.php');
 require_once('change_password_form.php');
 
-$id     = optional_param('id', SITEID, PARAM_INT); // current course
+$id     = optional_param('id', $SITE->id, PARAM_INT); // current course
 $return = optional_param('return', 0, PARAM_BOOL); // redirect after password change
 
 //HTTPS is required in this page when $CFG->loginhttps enabled

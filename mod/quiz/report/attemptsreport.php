@@ -114,12 +114,14 @@ abstract class quiz_attempt_report extends quiz_default_report {
      * @param int $currentgroup the currently selected group. 0 for none.
      */
     protected function validate_common_options(&$attemptsmode, &$pagesize, $course, $currentgroup) {
+        global $SITE;
+
         if ($currentgroup) {
             //default for when a group is selected
             if ($attemptsmode === null  || $attemptsmode == QUIZ_REPORT_ATTEMPTS_ALL) {
                 $attemptsmode = QUIZ_REPORT_ATTEMPTS_STUDENTS_WITH;
             }
-        } else if (!$currentgroup && $course->id == SITEID) {
+        } else if (!$currentgroup && $course->id == $SITE->id) {
             //force report on front page to show all, unless a group is selected.
             $attemptsmode = QUIZ_REPORT_ATTEMPTS_ALL;
         } else if ($attemptsmode === null) {

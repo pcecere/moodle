@@ -73,13 +73,13 @@ function report_completion_extend_navigation_user($navigation, $user, $course) {
  * @return bool
  */
 function report_completion_can_access_user_report($user, $course) {
-    global $USER, $CFG;
+    global $USER, $CFG, $SITE;
 
     if (empty($CFG->enablecompletion)) {
         return false;
     }
 
-    if ($course->id != SITEID and !$course->enablecompletion) {
+    if ($course->id != $SITE->id and !$course->enablecompletion) {
         return;
     }
 

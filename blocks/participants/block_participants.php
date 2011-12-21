@@ -7,7 +7,7 @@ class block_participants extends block_list {
 
     function get_content() {
 
-        global $CFG, $OUTPUT;
+        global $CFG, $OUTPUT, $SITE;
 
         if (empty($this->instance)) {
             $this->content = '';
@@ -22,7 +22,7 @@ class block_participants extends block_list {
         /// MDL-13252 Always get the course context or else the context may be incorrect in the user/index.php
         $currentcontext = $this->page->context;
 
-        if ($this->page->course->id == SITEID) {
+        if ($this->page->course->id == $SITE->id) {
             if (!has_capability('moodle/site:viewparticipants', get_context_instance(CONTEXT_SYSTEM))) {
                 $this->content = '';
                 return $this->content;
@@ -40,7 +40,7 @@ class block_participants extends block_list {
         return $this->content;
     }
 
-    // my moodle can only have SITEID and it's redundant here, so take it away
+    // my moodle can only have $SITE->id and it's redundant here, so take it away
     function applicable_formats() {
         return array('all' => true, 'my' => false, 'tag' => false);
     }

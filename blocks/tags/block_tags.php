@@ -37,7 +37,7 @@ class block_tags extends block_base {
 
     function get_content() {
 
-        global $CFG, $COURSE, $SITE, $USER, $SCRIPT, $OUTPUT;
+        global $CFG, $COURSE, $SITE, $USER, $SCRIPT, $OUTPUT, $SITE;
 
         if (empty($CFG->usetags)) {
             $this->content->text = '';
@@ -80,9 +80,9 @@ class block_tags extends block_base {
             $systemcontext = get_context_instance(CONTEXT_SYSTEM);
             $loggedin = isloggedin() && !isguestuser();
             $coursepage = $canedit = false;
-            $coursepage = (isset($this->page->course->id) && $this->page->course->id != SITEID);
+            $coursepage = (isset($this->page->course->id) && $this->page->course->id != $SITE->id);
             $mymoodlepage = ($SCRIPT == '/my/index.php') ? true : false;
-            $sitepage = (isset($this->page->course->id) && $this->page->course->id == SITEID && !$mymoodlepage);
+            $sitepage = (isset($this->page->course->id) && $this->page->course->id == $SITE->id && !$mymoodlepage);
             $coursecontext = get_context_instance(CONTEXT_COURSE, $this->page->course->id);
             if ($coursepage) {
                 $canedit =  has_capability('moodle/tag:create', $systemcontext);
@@ -91,8 +91,8 @@ class block_tags extends block_base {
             // Check rss feed - temporarily removed until Dublin Core tags added
             // provides a feed of users course tags for each unit they have tagged
             //$rssfeed = '';
-            //if (file_exists($CFG->dataroot.'/'.SITEID.'/usertagsrss/'.$USER->id.'/user_unit_tags_rss.xml')) {
-            //    $rssfeed = '/file.php/'.SITEID.'/usertagsrss/'.$USER->id.'/user_unit_tags_rss.xml';
+            //if (file_exists($CFG->dataroot.'/'.$SITE->id.'/usertagsrss/'.$USER->id.'/user_unit_tags_rss.xml')) {
+            //    $rssfeed = '/file.php/'.$SITE->id.'/usertagsrss/'.$USER->id.'/user_unit_tags_rss.xml';
             //}
 
             // Language strings

@@ -243,13 +243,13 @@ class restore_course_search extends restore_search_base {
      * @global moodle_database $DB
      */
     protected function get_searchsql() {
-        global $DB;
+        global $DB, $SITE;
 
         list($ctxselect, $ctxjoin) = context_instance_preload_sql('c.id', CONTEXT_COURSE, 'ctx');
         $params = array(
             'fullnamesearch' => '%'.$this->get_search().'%',
             'shortnamesearch' => '%'.$this->get_search().'%',
-            'siteid' => SITEID
+            'siteid' => $SITE->id
         );
 
         $select     = " SELECT c.id,c.fullname,c.shortname,c.visible,c.sortorder ";

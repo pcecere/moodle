@@ -105,7 +105,7 @@ echo '<input type="hidden" name="processed" value="yes" />';
 $count = 0;
 foreach($users as $user) {
     $temparray = array (
-        '<a href="'.$CFG->wwwroot.'/user/view.php?id='.$user->id.'&amp;course='.SITEID.'">'.$user->fullname.'</a>'
+        '<a href="'.$CFG->wwwroot.'/user/view.php?id='.$user->id.'&amp;course='.$SITE->id.'">'.$user->fullname.'</a>'
     );
     $mycourses = enrol_get_users_courses($user->id, false);
     foreach($courses as $acourse) {

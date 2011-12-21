@@ -104,7 +104,7 @@ if (!empty($modid)) {
     $courseid = $mod->course;
 }
 
-if ((empty($courseid) ? true : $courseid == SITEID) && empty($userid)) {
+if ((empty($courseid) ? true : $courseid == $SITE->id) && empty($userid)) {
     if ($CFG->bloglevel < BLOG_SITE_LEVEL) {
         print_error('siteblogdisable', 'blog');
     }
@@ -130,7 +130,7 @@ if (!empty($courseid)) {
         print_error('cannotviewcourseblog', 'blog');
     }
 } else {
-    $coursecontext = get_context_instance(CONTEXT_COURSE, SITEID);
+    $coursecontext = get_context_instance(CONTEXT_COURSE, $SITE->id);
 }
 
 if (!empty($groupid)) {
@@ -195,7 +195,7 @@ if (!empty($userid)) {
     }
 }
 
-$courseid = (empty($courseid)) ? SITEID : $courseid;
+$courseid = (empty($courseid)) ? $SITE->id : $courseid;
 
 if (!empty($courseid)) {
     $PAGE->set_context(get_context_instance(CONTEXT_COURSE, $courseid));

@@ -64,7 +64,7 @@ class user_editadvanced_form extends moodleform {
     }
 
     function definition_after_data() {
-        global $USER, $CFG, $DB, $OUTPUT;
+        global $USER, $CFG, $DB, $OUTPUT, $SITE;
 
         $mform =& $this->_form;
         if ($userid = $mform->getElementValue('id')) {
@@ -99,6 +99,20 @@ class user_editadvanced_form extends moodleform {
             $mform->addRule('newpassword', get_string('required'), 'required', null, 'client');
         }
 
+        // remove password field if it does not make sense
+        if ($auth = $mform->getElementValue('auth')) {
+            if (!empty($auth[0]) and $authplugin = get_auth_plugin($auth[0])) {
+                if (!$authplugin->can_change_password()) {
+                    if ($mform->elementExists('newpassword')) {
+                        $mform->removeElement('newpassword');
+                    }
+                    if ($mform->elementExists('passwordpolicyinfo')) {
+                        $mform->removeElement('passwordpolicyinfo');
+                    }
+                }
+            }
+        }
+
         // print picture
         if (!empty($CFG->gdversion) and empty($USER->newadminuser)) {
             if ($user) {
@@ -106,7 +120,7 @@ class user_editadvanced_form extends moodleform {
                 $fs = get_file_storage();
                 $hasuploadedpicture = ($fs->file_exists($context->id, 'user', 'icon', 0, '/', 'f2.png') || $fs->file_exists($context->id, 'user', 'icon', 0, '/', 'f2.jpg'));
                 if (!empty($user->picture) && $hasuploadedpicture) {
-                    $imagevalue = $OUTPUT->user_picture($user, array('courseid' => SITEID, 'size'=>64));
+                    $imagevalue = $OUTPUT->user_picture($user, array('courseid' => $SITE->id, 'size'=>64));
                 } else {
                     $imagevalue = get_string('none');
                 }

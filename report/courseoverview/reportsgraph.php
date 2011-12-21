@@ -37,7 +37,7 @@ require_capability('report/courseoverview:view', get_context_instance(CONTEXT_SY
 
 stats_check_uptodate();
 
-$param = stats_get_parameters($time,$report,SITEID,STATS_MODE_RANKED);
+$param = stats_get_parameters($time,$report,$SITE->id,STATS_MODE_RANKED);
 
 if (!empty($param->sql)) {
     $sql = $param->sql;

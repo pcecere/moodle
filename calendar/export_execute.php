@@ -67,8 +67,8 @@ if(!empty($what) && !empty($time)) {
             if (empty($groups)) {
                 $groups = false;
             }
-            $courses[SITEID] = new stdClass;
-            $courses[SITEID]->shortname = get_string('globalevents', 'calendar');
+            $courses[$SITE->id] = new stdClass;
+            $courses[$SITE->id]->shortname = get_string('globalevents', 'calendar');
         } else {
             $users = false;
             $groups = false;

@@ -673,7 +673,7 @@ class core_calendar_renderer extends plugin_renderer_base {
      * @return string
      */
     protected function course_filter_selector(moodle_url $returnurl, $label=null) {
-        global $USER, $SESSION, $CFG;
+        global $USER, $SESSION, $CFG, $SITE;
 
         if (!isloggedin() or isguestuser()) {
             return '';
@@ -685,16 +685,16 @@ class core_calendar_renderer extends plugin_renderer_base {
             $courses = enrol_get_my_courses();
         }
 
-        unset($courses[SITEID]);
+        unset($courses[$SITE->id]);
 
         $courseoptions = array();
-        $courseoptions[SITEID] = get_string('fulllistofcourses');
+        $courseoptions[$SITE->id] = get_string('fulllistofcourses');
         foreach ($courses as $course) {
             $coursecontext = get_context_instance(CONTEXT_COURSE, $course->id);
             $courseoptions[$course->id] = format_string($course->shortname, true, array('context' => $coursecontext));
         }
 
-        if ($this->page->course->id !== SITEID) {
+        if ($this->page->course->id !== $SITE->id) {
             $selected = $this->page->course->id;
         } else {
             $selected = '';

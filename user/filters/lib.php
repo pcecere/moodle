@@ -166,13 +166,15 @@ class user_filtering {
      * @return array sql string and $params
      */
     function get_sql_filter($extra='', array $params=null) {
-        global $SESSION;
+        global $SESSION, $TENANT;
 
-        $sqls = array();
         if ($extra != '') {
             $sqls[] = $extra;
         }
         $params = (array)$params;
+
+        $sqls[] = 'tenantid = :tenantid';
+        $params['tenantid'] = $TENANT->id;
 
         if (!empty($SESSION->user_filtering)) {
             foreach ($SESSION->user_filtering as $fname=>$datas) {

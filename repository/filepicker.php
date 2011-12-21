@@ -46,7 +46,7 @@ $itemid      = optional_param('itemid', '',        PARAM_INT);
 // parameters for repository
 $callback    = optional_param('callback', '',      PARAM_CLEANHTML);
 $contextid   = optional_param('ctx_id',    SYSCONTEXTID, PARAM_INT);    // context ID
-$courseid    = optional_param('course',    SITEID, PARAM_INT);    // course ID
+$courseid    = optional_param('course',    $SITE->id, PARAM_INT);    // course ID
 $env         = optional_param('env', 'filepicker', PARAM_ALPHA);  // opened in file picker, file manager or html editor
 $filename    = optional_param('filename', '',      PARAM_FILE);
 $fileurl     = optional_param('fileurl', '',       PARAM_RAW);
@@ -311,7 +311,7 @@ case 'confirm':
 default:
 case 'plugins':
     $params = array();
-    $params['context'] = array($user_context, get_system_context());
+    $params['context'] = array($user_context, context_helper::top_context());
     $params['currentcontext'] = $PAGE->context;
     $params['return_types'] = FILE_INTERNAL;
 

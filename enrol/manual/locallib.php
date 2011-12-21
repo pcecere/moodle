@@ -46,16 +46,17 @@ class enrol_manual_potential_participant extends user_selector_base {
      * @return array
      */
     public function find_users($search) {
-        global $DB;
+        global $DB, $TENANT;
         //by default wherecondition retrieves all users except the deleted, not confirmed and guest
         list($wherecondition, $params) = $this->search_sql($search, 'u');
         $params['enrolid'] = $this->enrolid;
+        $params['tenantid'] = $TENANT->id;
 
         $fields      = 'SELECT ' . $this->required_fields_sql('u');
         $countfields = 'SELECT COUNT(1)';
 
         $sql = " FROM {user} u
-                WHERE $wherecondition AND
+                WHERE $wherecondition AND u.tenantid = :tenantid AND
                       u.id NOT IN (
                           SELECT ue.userid
                             FROM {user_enrolments} ue
@@ -111,17 +112,18 @@ class enrol_manual_current_participant extends user_selector_base {
      * @return array
      */
     public function find_users($search) {
-        global $DB;
+        global $DB, $TENANT;
         //by default wherecondition retrieves all users except the deleted, not confirmed and guest
         list($wherecondition, $params) = $this->search_sql($search, 'u');
         $params['enrolid'] = $this->enrolid;
+        $params['tenantid'] = $TENANT->id;
 
         $fields      = 'SELECT ' . $this->required_fields_sql('u');
         $countfields = 'SELECT COUNT(1)';
 
         $sql = " FROM {user} u
                  JOIN {user_enrolments} ue ON (ue.userid = u.id AND ue.enrolid = :enrolid)
-                WHERE $wherecondition";
+                WHERE $wherecondition AND u.tenantid = :tenantid";
 
         $order = ' ORDER BY u.lastname ASC, u.firstname ASC';
 

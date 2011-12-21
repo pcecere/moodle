@@ -104,7 +104,7 @@ function calendar_get_starting_weekday() {
  * @return string
  */
 function calendar_get_mini($courses, $groups, $users, $cal_month = false, $cal_year = false) {
-    global $CFG, $USER, $OUTPUT;
+    global $CFG, $USER, $OUTPUT, $SITE;
 
     $display = new stdClass;
     $display->minwday = get_user_preferences('calendar_startwday', calendar_get_starting_weekday());
@@ -188,13 +188,13 @@ function calendar_get_mini($courses, $groups, $users, $cal_month = false, $cal_y
     }
 
     // This is either a genius idea or an idiot idea: in order to not complicate things, we use this rule: if, after
-    // possibly removing SITEID from $courses, there is only one course left, then clicking on a day in the month
+    // possibly removing $SITE->id from $courses, there is only one course left, then clicking on a day in the month
     // will also set the $SESSION->cal_courses_shown variable to that one course. Otherwise, we 'd need to add extra
     // arguments to this function.
 
     $hrefparams = array();
     if(!empty($courses)) {
-        $courses = array_diff($courses, array(SITEID));
+        $courses = array_diff($courses, array($SITE->id));
         if(count($courses) == 1) {
             $hrefparams['course'] = reset($courses);
         }
@@ -273,9 +273,9 @@ function calendar_get_mini($courses, $groups, $users, $cal_month = false, $cal_y
                     $popupicon = 'icon';
                     $popupalt  = $event->modulename;
                     $component = $event->modulename;
-                } else if ($event->courseid == SITEID) {                                // Site event
+                } else if ($event->courseid == $SITE->id) {                                // Site event
                     $popupicon = 'c/site';
-                } else if ($event->courseid != 0 && $event->courseid != SITEID && $event->groupid == 0) {      // Course event
+                } else if ($event->courseid != 0 && $event->courseid != $SITE->id && $event->groupid == 0) {      // Course event
                     $popupicon = 'c/course';
                 } else if ($event->groupid) {                                      // Group event
                     $popupicon = 'c/group';
@@ -408,7 +408,7 @@ function calendar_get_popup($is_today, $event_timestart, $popupcontent='') {
 }
 
 function calendar_get_upcoming($courses, $groups, $users, $daysinfuture, $maxevents, $fromtime=0) {
-    global $CFG, $COURSE, $DB;
+    global $CFG, $COURSE, $DB, $SITE;
 
     $display = new stdClass;
     $display->range = $daysinfuture; // How many days in the future we 'll look
@@ -437,13 +437,13 @@ function calendar_get_upcoming($courses, $groups, $users, $daysinfuture, $maxeve
     $events = calendar_get_events($display->tstart, $display->tend, $users, $groups, $courses);
 
     // This is either a genius idea or an idiot idea: in order to not complicate things, we use this rule: if, after
-    // possibly removing SITEID from $courses, there is only one course left, then clicking on a day in the month
+    // possibly removing $SITE->id from $courses, there is only one course left, then clicking on a day in the month
     // will also set the $SESSION->cal_courses_shown variable to that one course. Otherwise, we 'd need to add extra
     // arguments to this function.
 
     $hrefparams = array();
     if(!empty($courses)) {
-        $courses = array_diff($courses, array(SITEID));
+        $courses = array_diff($courses, array($SITE->id));
         if(count($courses) == 1) {
             $hrefparams['course'] = reset($courses);
         }
@@ -513,7 +513,7 @@ function calendar_get_upcoming($courses, $groups, $users, $daysinfuture, $maxeve
 }
 
 function calendar_add_event_metadata($event) {
-    global $CFG, $OUTPUT;
+    global $CFG, $OUTPUT, $SITE;
 
     //Support multilang in event->name
     $event->name = format_string($event->name,true);
@@ -546,10 +546,10 @@ function calendar_add_event_metadata($event) {
         $event->cmid = $module->id;
 
 
-    } else if($event->courseid == SITEID) {                              // Site event
+    } else if($event->courseid == $SITE->id) {                              // Site event
         $event->icon = '<img height="16" width="16" src="'.$OUTPUT->pix_url('c/site') . '" alt="'.get_string('globalevent', 'calendar').'" style="vertical-align: middle;" />';
         $event->cssclass = 'calendar_event_global';
-    } else if($event->courseid != 0 && $event->courseid != SITEID && $event->groupid == 0) {          // Course event
+    } else if($event->courseid != 0 && $event->courseid != $SITE->id && $event->groupid == 0) {          // Course event
         calendar_get_course_cached($coursecache, $event->courseid);
 
         $context = get_context_instance(CONTEXT_COURSE, $event->courseid);
@@ -1099,6 +1099,8 @@ function calendar_sub_month($month, $year) {
 }
 
 function calendar_events_by_day($events, $month, $year, &$eventsbyday, &$durationbyday, &$typesbyday, &$courses) {
+    global $SITE;
+
     $eventsbyday = array();
     $typesbyday = array();
     $durationbyday = array();
@@ -1130,12 +1132,12 @@ function calendar_events_by_day($events, $month, $year, &$eventsbyday, &$duratio
             $eventsbyday[$eventdaystart][] = $event->id;
 
             // Mark the day as having such an event
-            if($event->courseid == SITEID && $event->groupid == 0) {
+            if($event->courseid == $SITE->id && $event->groupid == 0) {
                 $typesbyday[$eventdaystart]['startglobal'] = true;
                 // Set event class for global event
                 $events[$event->id]->class = 'calendar_event_global';
             }
-            else if($event->courseid != 0 && $event->courseid != SITEID && $event->groupid == 0) {
+            else if($event->courseid != 0 && $event->courseid != $SITE->id && $event->groupid == 0) {
                 $typesbyday[$eventdaystart]['startcourse'] = true;
                 // Set event class for course event
                 $events[$event->id]->class = 'calendar_event_course';
@@ -1166,10 +1168,10 @@ function calendar_events_by_day($events, $month, $year, &$eventsbyday, &$duratio
         // Mark all days between $lowerbound and $upperbound (inclusive) as duration
         for($i = $lowerbound + 1; $i <= $upperbound; ++$i) {
             $durationbyday[$i][] = $event->id;
-            if($event->courseid == SITEID && $event->groupid == 0) {
+            if($event->courseid == $SITE->id && $event->groupid == 0) {
                 $typesbyday[$i]['durationglobal'] = true;
             }
-            else if($event->courseid != 0 && $event->courseid != SITEID && $event->groupid == 0) {
+            else if($event->courseid != 0 && $event->courseid != $SITE->id && $event->groupid == 0) {
                 $typesbyday[$i]['durationcourse'] = true;
             }
             else if($event->groupid) {
@@ -1216,7 +1218,7 @@ function calendar_get_course_cached(&$coursecache, $courseid) {
  * @return array An array of courses, groups, and user to load calendar events for based upon filters
  */
 function calendar_set_filters(array $courseeventsfrom, $ignorefilters = false) {
-    global $USER, $CFG, $DB;
+    global $USER, $CFG, $DB, $SITE;
 
     // For backwards compatability we have to check whether the courses array contains
     // just id's in which case we need to load course objects.
@@ -1243,17 +1245,17 @@ function calendar_set_filters(array $courseeventsfrom, $ignorefilters = false) {
         $courses = array_keys($courseeventsfrom);
     }
     if ($ignorefilters || calendar_show_event_type(CALENDAR_EVENT_GLOBAL)) {
-        $courses[] = SITEID;
+        $courses[] = $SITE->id;
     }
     $courses = array_unique($courses);
     sort($courses);
 
-    if (!empty($courses) && in_array(SITEID, $courses)) {
+    if (!empty($courses) && in_array($SITE->id, $courses)) {
         // Sort courses for consistent colour highlighting
-        // Effectively ignoring SITEID as setting as last course id
-        $key = array_search(SITEID, $courses);
+        // Effectively ignoring $SITE->id as setting as last course id
+        $key = array_search($SITE->id, $courses);
         unset($courses[$key]);
-        $courses[] = SITEID;
+        $courses[] = $SITE->id;
     }
 
     if ($ignorefilters || ($isloggedin && calendar_show_event_type(CALENDAR_EVENT_USER))) {
@@ -1539,17 +1541,17 @@ function calendar_set_event_type_display($type, $display = null, $user = null) {
 }
 
 function calendar_get_allowed_types(&$allowed, $course = null) {
-    global $USER, $CFG, $DB;
+    global $USER, $CFG, $DB, $SITE;
     $allowed->user = has_capability('moodle/calendar:manageownentries', get_system_context());
     $allowed->groups = false; // This may change just below
     $allowed->courses = false; // This may change just below
-    $allowed->site = has_capability('moodle/calendar:manageentries', get_context_instance(CONTEXT_COURSE, SITEID));
+    $allowed->site = has_capability('moodle/calendar:manageentries', get_context_instance(CONTEXT_COURSE, $SITE->id));
 
     if (!empty($course)) {
         if (!is_object($course)) {
             $course = $DB->get_record('course', array('id' => $course), '*', MUST_EXIST);
         }
-        if ($course->id != SITEID) {
+        if ($course->id != $SITE->id) {
             $coursecontext = get_context_instance(CONTEXT_COURSE, $course->id);
 
             if (has_capability('moodle/calendar:manageentries', $coursecontext)) {
@@ -1895,7 +1897,7 @@ class calendar_event {
      * @param boolean $checkcapability if moodle should check calendar managing capability or not
      */
     public function update($data, $checkcapability=true) {
-        global $CFG, $DB, $USER;
+        global $CFG, $DB, $USER, $SITE;
 
         foreach ($data as $key=>$value) {
             $this->properties->$key = $value;
@@ -1922,7 +1924,7 @@ class calendar_event {
                         break;
                     case 'site':
                         $this->editorcontext = $this->properties->context;
-                        $this->properties->courseid = SITEID;
+                        $this->properties->courseid = $SITE->id;
                         $this->properties->groupid = 0;
                         $this->properties->userid = $USER->id;
                         break;

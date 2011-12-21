@@ -194,7 +194,7 @@ class comment {
         } else if (!empty($options->courseid)) {
             $this->courseid = $options->courseid;
         } else {
-            $this->courseid = SITEID;
+            $this->courseid = $SITE->id;
         }
 
         // setup coursemodule

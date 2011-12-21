@@ -76,7 +76,7 @@ function report_stats_timeoptions($mode) {
 }
 
 function report_stats_report($course, $report, $mode, $user, $roleid, $time) {
-    global $CFG, $DB, $OUTPUT;
+    global $CFG, $DB, $OUTPUT, $SITE;
 
     if ($user) {
         $userid = $user->id;
@@ -154,7 +154,7 @@ function report_stats_report($course, $report, $mode, $user, $roleid, $time) {
     echo '</form>';
 
     if (!empty($report) && !empty($time)) {
-        if ($report == STATS_REPORT_LOGINS && $course->id != SITEID) {
+        if ($report == STATS_REPORT_LOGINS && $course->id != $SITE->id) {
             print_error('reportnotavailable');
         }
 
@@ -170,7 +170,7 @@ function report_stats_report($course, $report, $mode, $user, $roleid, $time) {
             //TODO: lceanup this ugly mess
             $sql = 'SELECT '.((empty($param->fieldscomplete)) ? 'id,roleid,timeend,' : '').$param->fields
                 .' FROM {stats_'.$param->table.'} WHERE '
-                .(($course->id == SITEID) ? '' : ' courseid = '.$course->id.' AND ')
+                .(($course->id == $SITE->id) ? '' : ' courseid = '.$course->id.' AND ')
                 .((!empty($userid)) ? ' userid = '.$userid.' AND ' : '')
                 .((!empty($roleid)) ? ' roleid = '.$roleid.' AND ' : '')
                 . ((!empty($param->stattype)) ? ' stattype = \''.$param->stattype.'\' AND ' : '')

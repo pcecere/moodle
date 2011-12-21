@@ -39,15 +39,19 @@ require_login();
 
 $category = null;
 if ($id) {
-    $cohort = $DB->get_record('cohort', array('id'=>$id), '*', MUST_EXIST);
-    $context = get_context_instance_by_id($cohort->contextid, MUST_EXIST);
+    $cohort = $DB->get_record('cohort', array('id'=>$id, 'tenantid'=>$TENANT->id), '*', MUST_EXIST);
+    $context = context::instance_by_id($cohort->contextid);
 } else {
-    $context = get_context_instance_by_id($contextid, MUST_EXIST);
-    if ($context->contextlevel != CONTEXT_COURSECAT and $context->contextlevel != CONTEXT_SYSTEM) {
+    $context = context::instance_by_id($contextid);
+    if ($context->contextlevel != CONTEXT_COURSECAT and $context->contextlevel != CONTEXT_TENANT and $context->contextlevel != CONTEXT_SYSTEM) {
         print_error('invalidcontext');
+    }
+    if ($context->tenantid != $TENANT->id) {
+        throw new tenant_access_exception();
     }
     $cohort = new stdClass();
     $cohort->id          = 0;
+    $cohort->tenantid    = $TENANT->id;
     $cohort->contextid   = $context->id;
     $cohort->name        = '';
     $cohort->description = '';
@@ -122,6 +126,7 @@ if ($editform->is_cancelled()) {
     if ($data->id) {
         cohort_update_cohort($data);
     } else {
+        $data->tenantid = $TENANT->id;
         cohort_add_cohort($data);
     }
 

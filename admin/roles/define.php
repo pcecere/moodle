@@ -94,7 +94,7 @@
 /// Process submission in necessary.
     if (optional_param('savechanges', false, PARAM_BOOL) && confirm_sesskey() && $definitiontable->is_submission_valid()) {
         $definitiontable->save_changes();
-        add_to_log(SITEID, 'role', $action, 'admin/roles/define.php?action=view&roleid=' .
+        add_to_log($SITE->id, 'role', $action, 'admin/roles/define.php?action=view&roleid=' .
                 $definitiontable->get_role_id(), $definitiontable->get_role_name(), '', $USER->id);
         redirect($manageurl);
     }

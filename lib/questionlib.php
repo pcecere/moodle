@@ -1024,7 +1024,8 @@ function question_make_default_categories($contexts) {
         CONTEXT_COURSE => 4,
         CONTEXT_MODULE => 3,
         CONTEXT_COURSECAT => 2,
-        CONTEXT_SYSTEM => 1,
+        CONTEXT_TENANT => 1,
+        CONTEXT_SYSTEM => 0,
     );
 
     $toreturn = null;

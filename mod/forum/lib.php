@@ -371,17 +371,10 @@ WHERE
  * Finds all posts that have yet to be mailed out, and mails them
  * out to all subscribers
  *
- * @global object
- * @global object
- * @global object
- * @uses CONTEXT_MODULE
- * @uses CONTEXT_COURSE
- * @uses SITEID
- * @uses FORMAT_PLAIN
  * @return void
  */
 function forum_cron() {
-    global $CFG, $USER, $DB;
+    global $CFG, $USER, $DB, $SITE;
 
     $site = get_site();
 
@@ -1822,7 +1815,7 @@ function forum_get_child_posts($parent, $forumid) {
  */
 function forum_get_readable_forums($userid, $courseid=0) {
 
-    global $CFG, $DB, $USER;
+    global $CFG, $DB, $USER, $SITE;
     require_once($CFG->dirroot.'/course/lib.php');
 
     if (!$forummod = $DB->get_record('modules', array('name' => 'forum'))) {
@@ -1833,7 +1826,7 @@ function forum_get_readable_forums($userid, $courseid=0) {
         $courses = $DB->get_records('course', array('id' => $courseid));
     } else {
         // If no course is specified, then the user can see SITE + his courses.
-        $courses1 = $DB->get_records('course', array('id' => SITEID));
+        $courses1 = $DB->get_records('course', array('id' => $SITE->id));
         $courses2 = enrol_get_users_courses($userid, true, array('modinfo'));
         $courses = array_merge($courses1, $courses2);
     }
@@ -2910,7 +2903,7 @@ function forum_subscribed_users($course, $forum, $groupid=0, $context = null, $f
  */
 function forum_get_course_forum($courseid, $type) {
 // How to set up special 1-per-course forums
-    global $CFG, $DB, $OUTPUT;
+    global $CFG, $DB, $OUTPUT, $SITE;
 
     if ($forums = $DB->get_records_select("forum", "course = ? AND type = ?", array($courseid, $type), "id ASC")) {
         // There should always only be ONE, but with the right combination of
@@ -2929,7 +2922,7 @@ function forum_get_course_forum($courseid, $type) {
             $forum->intro = get_string("intronews", "forum");
             $forum->forcesubscribe = FORUM_FORCESUBSCRIBE;
             $forum->assessed = 0;
-            if ($courseid == SITEID) {
+            if ($courseid == $SITE->id) {
                 $forum->name  = get_string("sitenews");
                 $forum->forcesubscribe = 0;
             }
@@ -7412,7 +7405,7 @@ function forum_extend_navigation($navref, $course, $module, $cm) {
  * @param navigation_node $forumnode The node to add module settings to
  */
 function forum_extend_settings_navigation(settings_navigation $settingsnav, navigation_node $forumnode) {
-    global $USER, $PAGE, $CFG, $DB, $OUTPUT;
+    global $USER, $PAGE, $CFG, $DB, $OUTPUT, $SITE;
 
     $forumobject = $DB->get_record("forum", array("id" => $PAGE->cm->instance));
     if (empty($PAGE->cm->context)) {
@@ -7502,13 +7495,13 @@ function forum_extend_settings_navigation(settings_navigation $settingsnav, navi
         }
     }
 
-    if (!isloggedin() && $PAGE->course->id == SITEID) {
+    if (!isloggedin() && $PAGE->course->id == $SITE->id) {
         $userid = guest_user()->id;
     } else {
         $userid = $USER->id;
     }
 
-    $hascourseaccess = ($PAGE->course->id == SITEID) || can_access_course($PAGE->course, $userid);
+    $hascourseaccess = ($PAGE->course->id == $SITE->id) || can_access_course($PAGE->course, $userid);
     $enablerssfeeds = !empty($CFG->enablerssfeeds) && !empty($CFG->forum_enablerssfeeds);
 
     if ($enablerssfeeds && $forumobject->rsstype && $forumobject->rssarticles && $hascourseaccess) {

@@ -50,9 +50,9 @@
     require_login($course);
 
     $systemcontext = get_context_instance(CONTEXT_SYSTEM);
-    $isfrontpage = ($course->id == SITEID);
+    $isfrontpage = ($course->id == $SITE->id);
 
-    $frontpagectx = get_context_instance(CONTEXT_COURSE, SITEID);
+    $frontpagectx = get_context_instance(CONTEXT_COURSE, $SITE->id);
 
     if ($isfrontpage) {
         $PAGE->set_pagelayout('admin');
@@ -163,7 +163,7 @@
             'search' => s($search)));
 
 /// setting up tags
-    if ($course->id == SITEID) {
+    if ($course->id == $SITE->id) {
         $filtertype = 'site';
     } else if ($course->id && !$currentgroup) {
         $filtertype = 'course';
@@ -202,8 +202,8 @@
             $courselist[$mycourse->id] = format_string($mycourse->shortname, true, array('context' => $coursecontext));
         }
         if (has_capability('moodle/site:viewparticipants', $systemcontext)) {
-            unset($courselist[SITEID]);
-            $courselist = array(SITEID => format_string($SITE->shortname, true, array('context' => $systemcontext))) + $courselist;
+            unset($courselist[$SITE->id]);
+            $courselist = array($SITE->id => format_string($SITE->shortname, true, array('context' => $systemcontext))) + $courselist;
         }
         $select = new single_select($popupurl, 'id', $courselist, $course->id, array(''=>'choosedots'), 'courseform');
         $select->set_label(get_string('mycourses'));
@@ -499,13 +499,13 @@
         }
         echo $OUTPUT->heading($heading, 3);
     } else {
-        if ($course->id != SITEID && has_capability('moodle/course:enrolreview', $context)) {
+        if ($course->id != $SITE->id && has_capability('moodle/course:enrolreview', $context)) {
             $editlink = $OUTPUT->action_icon(new moodle_url('/enrol/users.php', array('id' => $course->id)),
                                              new pix_icon('i/edit', get_string('edit')));
         } else {
             $editlink = '';
         }
-        if ($course->id == SITEID and $roleid < 0) {
+        if ($course->id == $SITE->id and $roleid < 0) {
             $strallparticipants = get_string('allsiteusers', 'role');
         } else {
             $strallparticipants = get_string('allparticipants');
@@ -613,7 +613,7 @@
                     if (!empty($user->role)) {
                         $row->cells[1]->text .= get_string('role').get_string('labelsep', 'langconfig').$user->role.'<br />';
                     }
-                    if ($user->maildisplay == 1 or ($user->maildisplay == 2 and ($course->id != SITEID) and !isguestuser()) or
+                    if ($user->maildisplay == 1 or ($user->maildisplay == 2 and ($course->id != $SITE->id) and !isguestuser()) or
                                 has_capability('moodle/course:viewhiddenuserfields', $context) or
                                 in_array('email', $extrafields)) {
                         $row->cells[1]->text .= get_string('email').get_string('labelsep', 'langconfig').html_writer::link("mailto:$user->email", $user->email) . '<br />';

@@ -301,6 +301,11 @@ global $USER;
 global $SITE;
 
 /**
+ * Current tenant record
+ */
+global $TENANT;
+
+/**
  * A central store of information about the current page we are
  * generating in response to the user's request.
  *
@@ -645,13 +650,16 @@ if (isset($_SERVER['PHP_SELF'])) {
     unset($phppos);
 }
 
-// initialise ME's - this must be done BEFORE starting of session!
+// initialise ME's and $TENANT - this must be done early
 initialise_fullme();
+
+// load tenant config overrides
+load_tenant_cfg();
 
 // define SYSCONTEXTID in config.php if you want to save some queries,
 // after install it must match the system context record id.
 if (!defined('SYSCONTEXTID')) {
-    get_system_context();
+    context_system::instance();
 }
 
 // Defining the site - aka frontpage course
@@ -662,6 +670,7 @@ try {
     if (empty($CFG->version)) {
         $SITE = new stdClass();
         $SITE->id = 1;
+        $SITE->tenantid = 0;
     } else {
         throw $e;
     }

@@ -138,7 +138,7 @@ class core_enrol_external extends external_api {
      * @return array An array of users
      */
     public static function get_enrolled_users($courseid, $options) {
-        global $CFG, $USER, $DB;
+        global $CFG, $USER, $DB, $SITE;
         require_once($CFG->dirroot . "/user/lib.php");
 
         $params = self::validate_parameters(
@@ -192,7 +192,7 @@ class core_enrol_external extends external_api {
         $course = $DB->get_record_sql($coursesql);
         context_instance_preload($course);
         $coursecontext = get_context_instance(CONTEXT_COURSE, $params['courseid']);
-        if ($courseid == SITEID) {
+        if ($courseid == $SITE->id) {
             $context = get_system_context();
         } else {
             $context = $coursecontext;
@@ -476,7 +476,7 @@ class moodle_enrol_external extends external_api {
      * @return array of course participants
      */
     public static function get_enrolled_users($courseid, $withcapability = null, $groupid = null, $onlyactive = false) {
-        global $DB, $CFG, $USER;
+        global $DB, $CFG, $USER, $SITE;
 
         // Do basic automatic PARAM checks on incoming data, using params description
         // If any problems are found then exceptions are thrown with helpful error messages
@@ -488,7 +488,7 @@ class moodle_enrol_external extends external_api {
         );
 
         $coursecontext = get_context_instance(CONTEXT_COURSE, $params['courseid']);
-        if ($courseid == SITEID) {
+        if ($courseid == $SITE->id) {
             $context = get_context_instance(CONTEXT_SYSTEM);
         } else {
             $context = $coursecontext;
@@ -503,7 +503,7 @@ class moodle_enrol_external extends external_api {
             throw new moodle_exception(get_string('errorcoursecontextnotvalid' , 'webservice', $exceptionparam));
         }
 
-        if ($courseid == SITEID) {
+        if ($courseid == $SITE->id) {
             require_capability('moodle/site:viewparticipants', $context);
         } else {
             require_capability('moodle/course:viewparticipants', $context);
