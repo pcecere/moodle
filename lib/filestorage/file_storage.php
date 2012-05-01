@@ -776,6 +776,10 @@ class file_storage {
                 }
             }
 
+            if ($key == 'proxyfileid' or $key == 'proxylastsync' or $key == 'proxylifetime') {
+                $value = clean_param($value, PARAM_INT);
+            }
+
             $newrecord->$key = $value;
         }
 
@@ -952,6 +956,10 @@ class file_storage {
         $newrecord->license      = empty($file_record->license) ? null : $file_record->license;
         $newrecord->sortorder    = $file_record->sortorder;
 
+        $newrecord->proxyfileid   = !isset($file_record->proxyfileid) ? 0 : $file_record->proxyfileid;
+        $newrecord->proxylastsync = !isset($file_record->proxylastsync) ? 0 : $file_record->proxylastsync;
+        $newrecord->proxylifetime = !isset($file_record->proxylifetime) ? 0 : $file_record->proxylifetime;
+
         list($newrecord->contenthash, $newrecord->filesize, $newfile) = $this->add_file_to_pool($pathname);
 
         $newrecord->pathnamehash = $this->get_pathname_hash($newrecord->contextid, $newrecord->component, $newrecord->filearea, $newrecord->itemid, $newrecord->filepath, $newrecord->filename);
@@ -1065,6 +1073,10 @@ class file_storage {
         $newrecord->author       = empty($file_record->author) ? null : $file_record->author;
         $newrecord->license      = empty($file_record->license) ? null : $file_record->license;
         $newrecord->sortorder    = $file_record->sortorder;
+
+        $newrecord->proxyfileid   = !isset($file_record->proxyfileid) ? 0 : $file_record->proxyfileid;
+        $newrecord->proxylastsync = !isset($file_record->proxylastsync) ? 0 : $file_record->proxylastsync;
+        $newrecord->proxylifetime = !isset($file_record->proxylifetime) ? 0 : $file_record->proxylifetime;
 
         list($newrecord->contenthash, $newrecord->filesize, $newfile) = $this->add_string_to_pool($content);
 

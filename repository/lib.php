@@ -1861,6 +1861,22 @@ abstract class repository {
             return false;
         }
     }
+
+    public static function get_repository_by_id($instanceid, $contextid) {
+        //TODO
+    }
+
+    public function proxy_readfile(stored_file $file, $proxy) {
+        return false;
+    }
+
+    public function sync_individual_file(stored_file $file) {
+        return true;
+    }
+
+    public function get_proxy_file_by_reference($proxy) {
+        //TODO
+    }
 }
 
 /**
@@ -2169,4 +2185,78 @@ function initialise_filepicker($args) {
  */
 function repository_attach_id(&$value, $key, $id){
     $value['repo_id'] = $id;
+}
+
+/**
+ * Call to request proxy file sync with repository source.
+ * @param stored_file $file
+ * @return bool success
+ */
+function repository_sync_proxy(stored_file $file) {
+    global $DB;
+
+    $fs = get_file_storage();
+
+    if (!$proxy = $DB->get_record('proxy_files', array('id'=>$file->get_proxyfileid()))) {
+        return false;
+    }
+
+    if (empty($proxy->lastsync) or ($proxy->lastsync + $proxy->lifetime < time())) {
+        return false;
+    }
+
+    if (!$repository = repository::get_repository_by_id($proxy->repositoryinstanceid, SYSCONTEXTID)) {
+        return false;
+    }
+
+    if (!$repository->sync_individual_file($file)) {
+        return false;
+    }
+
+    $fileinfo = $repository->get_proxy_file_by_reference($proxy);
+    if ($fileinfo === null) {
+        // does not exist any more - set status to missing
+        $sql = "UPDATE {files} SET status = :missing WHERE proxyfileid = :proxyfileid";
+        $params = array('proxyfileid'=>$proxy->id, 'missing'=>666);
+        $DB->execute($sql, $params);
+        //TODO: purge content from pool if we set some other content hash and it is no used any more
+        return true;
+    } else if ($fileinfo === false) {
+        // error
+        return false;
+    }
+
+    $contenthash = null;
+    $filesize = null;
+    if ($fileinfo->contenthash) {
+        $contenthash = $fileinfo->contenthash;
+        $filesize = $fileinfo->filesize;
+
+    } else if ($fileinfo->filepath) {
+        list($contenthash, $filesize, $newfile) = $fs->add_file_to_pool($fileinfo->filepath);
+
+    } else if ($fileinfo->handle) {
+        // TODO: read content, get sha1 hash, put to pool
+
+    } else if ($fileinfo->content) {
+        list($contenthash, $filesize, $newfile) = $fs->add_string_to_pool($fileinfo->content);
+    }
+
+    if (!isset($fileinfo->status)) {
+        $fileinfo->status = 0;
+    }
+
+    if (!isset($contenthash) or !isset($filesize)) {
+        return false;
+    }
+
+    // update all proxy files for this repo file
+    $sql = "UPDATE {files} SET contenthash = :contenthash, filesize = :filesize, proxylastsync = :now, proxylifetime = :lifetime, timemodified = :now2, status = :status WHERE proxyfileid = :proxyfileid";
+    $params = array('contenthash'=>$contenthash, 'filesize'=>$filesize, 'now'=>time(), 'lifetime'=>$proxy->lifetime,
+        'now2'=>time(), 'status'=>$fileinfo->status, 'proxyfileid'=>$proxy->id, 'contenthash2'=>$contenthash);
+    $DB->execute($sql, $params);
+
+    $DB->set_field('proxy_files', 'lastsync', time(), array('id'=>$proxy->id));
+
+    return true;
 }

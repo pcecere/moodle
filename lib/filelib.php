@@ -1627,6 +1627,12 @@ function readfile_accel($file, $mimetype, $accelerate) {
         header('Content-Type: '.$mimetype);
     }
 
+    if (is_object($file) and $file->get_proxyfileid()) {
+        // no performance tricks, sorry
+        $file->readfile();
+        return;
+    }
+
     $lastmodified = is_object($file) ? $file->get_timemodified() : filemtime($file);
     header('Last-Modified: '. gmdate('D, d M Y H:i:s', $lastmodified) .' GMT');
 

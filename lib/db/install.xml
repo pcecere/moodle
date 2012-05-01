@@ -2315,12 +2315,16 @@
         <FIELD NAME="license" TYPE="char" LENGTH="255" NOTNULL="false" SEQUENCE="false" COMMENT="license of the file to guide reuse" PREVIOUS="author" NEXT="timecreated"/>
         <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" PREVIOUS="license" NEXT="timemodified"/>
         <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" PREVIOUS="timecreated" NEXT="sortorder"/>
-        <FIELD NAME="sortorder" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="order of files" PREVIOUS="timemodified"/>
+        <FIELD NAME="sortorder" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="order of files" PREVIOUS="timemodified" NEXT="proxyfileid"/>
+        <FIELD NAME="proxyfileid" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false" COMMENT="Use to indicate file is a proxy for repository file" PREVIOUS="sortorder" NEXT="proxylastsync"/>
+        <FIELD NAME="proxylastsync" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Last time the proxy file was synced with repository, defined for performance reasons" PREVIOUS="proxyfileid" NEXT="proxylifetime"/>
+        <FIELD NAME="proxylifetime" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="How often do we have to sync proxy file with repository, defined for performance reasons" PREVIOUS="proxylastsync"/>
       </FIELDS>
       <KEYS>
         <KEY NAME="primary" TYPE="primary" FIELDS="id" NEXT="contextid"/>
         <KEY NAME="contextid" TYPE="foreign" FIELDS="contextid" REFTABLE="context" REFFIELDS="id" PREVIOUS="primary" NEXT="userid"/>
-        <KEY NAME="userid" TYPE="foreign" FIELDS="userid" REFTABLE="user" REFFIELDS="id" PREVIOUS="contextid"/>
+        <KEY NAME="userid" TYPE="foreign" FIELDS="userid" REFTABLE="user" REFFIELDS="id" PREVIOUS="contextid" NEXT="proxyfileid"/>
+        <KEY NAME="proxyfileid" TYPE="foreign" FIELDS="proxyfileid" REFTABLE="proxy_files" REFFIELDS="id" PREVIOUS="userid"/>
       </KEYS>
       <INDEXES>
         <INDEX NAME="component-filearea-contextid-itemid" UNIQUE="false" FIELDS="component, filearea, contextid, itemid" NEXT="contenthash"/>
@@ -2356,7 +2360,7 @@
         <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
       </KEYS>
     </TABLE>
-    <TABLE NAME="repository_instance_config" COMMENT="The config for intances" PREVIOUS="repository_instances" NEXT="backup_files">
+    <TABLE NAME="repository_instance_config" COMMENT="The config for intances" PREVIOUS="repository_instances" NEXT="proxy_files">
       <FIELDS>
         <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true" NEXT="instanceid"/>
         <FIELD NAME="instanceid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" PREVIOUS="id" NEXT="name"/>
@@ -2367,7 +2371,20 @@
         <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
       </KEYS>
     </TABLE>
-    <TABLE NAME="backup_files" COMMENT="To store and recode ids to user and course files" PREVIOUS="repository_instance_config" NEXT="backup_ids">
+    <TABLE NAME="proxy_files" COMMENT="Contains repository files that are proxied by stored files" PREVIOUS="repository_instance_config" NEXT="backup_files">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true" NEXT="repositoryinstanceid"/>
+        <FIELD NAME="repositoryinstanceid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="Original repository instance that contains the file" PREVIOUS="id" NEXT="lastsync"/>
+        <FIELD NAME="lastsync" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false" COMMENT="Last time the proxy file was synced with repository" PREVIOUS="repositoryinstanceid" NEXT="lifetime"/>
+        <FIELD NAME="lifetime" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false" COMMENT="How often do we have to sync proxy file with repository" PREVIOUS="lastsync" NEXT="reference"/>
+        <FIELD NAME="reference" TYPE="text" NOTNULL="true" SEQUENCE="false" COMMENT="File details defined by repository" PREVIOUS="lifetime"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+        <KEY NAME="repositoryinstanceid" TYPE="foreign" FIELDS="repositoryinstanceid" REFTABLE="repository_instances" REFFIELDS="id" PREVIOUS="primary"/>
+      </KEYS>
+    </TABLE>
+    <TABLE NAME="backup_files" COMMENT="To store and recode ids to user and course files" PREVIOUS="proxy_files" NEXT="backup_ids">
       <FIELDS>
         <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true" NEXT="backup_code"/>
         <FIELD NAME="backup_code" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" PREVIOUS="id" NEXT="file_type"/>

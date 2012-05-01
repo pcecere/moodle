@@ -97,6 +97,7 @@ class stored_file {
      * @return string full path to pool file with file content
      **/
     protected function get_content_file_location() {
+        $this->sync_proxy();
         $contenthash = $this->file_record->contenthash;
         $l1 = $contenthash[0].$contenthash[1];
         $l2 = $contenthash[2].$contenthash[3];
@@ -111,6 +112,9 @@ class stored_file {
     * @return void
     */
     public function add_to_curl_request(&$curlrequest, $key) {
+        if ($this->file_record->status != 0) {
+            throw new file_exception('storedfilenocontent');
+        }
         $curlrequest->_tmp_file_post_params[$key] = '@' . $this->get_content_file_location();
     }
 
@@ -122,6 +126,9 @@ class stored_file {
      * @return resource file handle
      */
     public function get_content_file_handle() {
+        if ($this->file_record->status != 0) {
+            throw new file_exception('storedfilenocontent');
+        }
         $path = $this->get_content_file_location();
         if (!is_readable($path)) {
             if (!$this->fs->try_content_recovery($this) or !is_readable($path)) {
@@ -135,6 +142,26 @@ class stored_file {
      * Dumps file content to page.
      */
     public function readfile() {
+        global $DB;
+
+        //note: the file serving code must make sure that headers are not sent yet here!
+
+        if (!empty($this->file_record->proxyfileid)) {
+            // give repo a chance to take over file serving
+            if ($proxy = $DB->get_record('proxy_files', array('id'=>$this->file_record->proxyfileid))) {
+                if ($repository = repository::get_repository_by_id($proxy->repositoryinstanceid, SYSCONTEXTID)) {
+                    // repo may clear all existing headers and decide to redirect or output the content directly
+                    if ($repository->proxy_readfile($this, $proxy)) {
+                        return;
+                    }
+                }
+            }
+        }
+
+        if ($this->file_record->status != 0) {
+            throw new file_exception('storedfilenocontent');
+        }
+
         $path = $this->get_content_file_location();
         if (!is_readable($path)) {
             if (!$this->fs->try_content_recovery($this) or !is_readable($path)) {
@@ -150,6 +177,9 @@ class stored_file {
      * @return string content
      */
     public function get_content() {
+        if ($this->file_record->status != 0) {
+            throw new file_exception('storedfilenocontent');
+        }
         $path = $this->get_content_file_location();
         if (!is_readable($path)) {
             if (!$this->fs->try_content_recovery($this) or !is_readable($path)) {
@@ -166,6 +196,9 @@ class stored_file {
      * @return bool success
      */
     public function copy_content_to($pathname) {
+        if ($this->file_record->status != 0) {
+            throw new file_exception('storedfilenocontent');
+        }
         $path = $this->get_content_file_location();
         if (!is_readable($path)) {
             if (!$this->fs->try_content_recovery($this) or !is_readable($path)) {
@@ -182,6 +215,9 @@ class stored_file {
      * @return array of file infos
      */
     public function list_files(file_packer $packer) {
+        if ($this->file_record->status != 0) {
+            throw new file_exception('storedfilenocontent');
+        }
         $archivefile = $this->get_content_file_location();
         return $packer->list_files($archivefile);
     }
@@ -194,6 +230,9 @@ class stored_file {
      * @return array|bool list of processed files; false if error
      */
     public function extract_to_pathname(file_packer $packer, $pathname) {
+        if ($this->file_record->status != 0) {
+            throw new file_exception('storedfilenocontent');
+        }
         $archivefile = $this->get_content_file_location();
         return $packer->extract_to_pathname($archivefile, $pathname);
     }
@@ -211,6 +250,9 @@ class stored_file {
      * @return array|bool list of processed files; false if error
      */
     public function extract_to_storage(file_packer $packer, $contextid, $component, $filearea, $itemid, $pathbase, $userid = NULL) {
+        if ($this->file_record->status != 0) {
+            throw new file_exception('storedfilenocontent');
+        }
         $archivefile = $this->get_content_file_location();
         return $packer->extract_to_storage($archivefile, $contextid, $component, $filearea, $itemid, $pathbase);
     }
@@ -370,6 +412,7 @@ class stored_file {
      * @return int bytes
      */
     public function get_filesize() {
+        $this->sync_proxy();
         return $this->file_record->filesize;
     }
 
@@ -397,6 +440,7 @@ class stored_file {
      * @return int
      */
     public function get_timemodified() {
+        $this->sync_proxy();
         return $this->file_record->timemodified;
     }
 
@@ -424,6 +468,7 @@ class stored_file {
      * @return string
      */
     public function get_contenthash() {
+        $this->sync_proxy();
         return $this->file_record->contenthash;
     }
 
@@ -470,5 +515,70 @@ class stored_file {
      */
     public function get_sortorder() {
         return $this->file_record->sortorder;
+    }
+
+    /**
+     * Returns the proxy file id
+     *
+     * @return int
+     */
+    public function get_proxyfileid() {
+        return $this->file_record->proxyfileid;
+    }
+
+    /**
+     * Returns last time when proxy field synchronised
+     *
+     * @return int
+     */
+    public function get_proxylastsync() {
+        $this->sync_proxy();
+        return $this->file_record->proxylastsync;
+    }
+
+    /**
+     * Returns how often is proxy file synchronised
+     *
+     * @return int
+     */
+    public function get_proxylifetime() {
+        return $this->file_record->proxylifetime;
+    }
+
+    /**
+     * Request proxy file sync
+     * @return bool true if file content changed, false if not
+     */
+    public function sync_proxy() {
+        global $CFG, $DB;
+
+        if (empty($this->file_record->proxyfileid)) {
+            return false;
+        }
+
+        if (empty($this->file_record->proxylastsync) or ($this->file_record->proxylastsync + $this->file_record->proxylifetime < time())) {
+            require_once($CFG->dirroot.'/repository/lib.php');
+            if (repository_sync_proxy($this)) {
+                $prevcontent = $this->file_record->contenthash;
+                $this->file_record = $DB->get_record('files', array('id'=>$this->file_record->id), '*', MUST_EXIST);
+                return ($prevcontent !== $this->file_record->contenthash);
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Remove the proxy link while keeping the last content of file.
+     * @return void
+     */
+    public function remove_proxy_link() {
+        global $DB;
+
+        if (empty($this->file_record->proxyfileid)) {
+            return;
+        }
+        $DB->execute("UDPATE {files} SET proxyfileid = NULL, proxylifetime = 0, proxylifetime = 0 WHERE id = ?", array($this->file_record->id));
+        return;
     }
 }
