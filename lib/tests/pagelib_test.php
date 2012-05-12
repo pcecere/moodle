@@ -334,6 +334,56 @@ class moodle_page_test extends advanced_testcase {
         // Validate
         $this->assertEquals('type', $this->testpage->pagelayout);
     }
+
+    public function test_set_page() {
+        global $CFG;
+
+        $this->resetAfterTest();
+
+        $page = new moodle_page();
+        $page->set_url('/index.php');
+        $this->assertSame($CFG->wwwroot.'/index.php', $page->url->out());
+
+        // Test invalid relative urls.
+
+        $CFG->debug = DEBUG_NORMAL;
+
+        ob_start();
+        $page = new moodle_page();
+        $page->set_url('/index.php?xx');
+        $debug = ob_get_contents();
+        ob_end_clean();
+        $this->assertNotEmpty($debug);
+
+        ob_start();
+        $page = new moodle_page();
+        $page->set_url('/index.php&xx');
+        $debug = ob_get_contents();
+        ob_end_clean();
+        $this->assertNotEmpty($debug);
+
+        ob_start();
+        $page = new moodle_page();
+        $page->set_url('/xyz.xyz');
+        $debug = ob_get_contents();
+        ob_end_clean();
+        $this->assertNotEmpty($debug);
+
+        $CFG->debug = DEBUG_MINIMAL;
+
+        ob_start();
+        $page = new moodle_page();
+        $page->set_url('/index.php');
+        $page = new moodle_page();
+        $page->set_url('/index.php?xx');
+        $page = new moodle_page();
+        $page->set_url('/xyz.xyz');
+        $page = new moodle_page();
+        $page->set_url('/index.php');
+        $debug = ob_get_contents();
+        ob_end_clean();
+        $this->assertEmpty($debug);
+    }
 }
 
 
