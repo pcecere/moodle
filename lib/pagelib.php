@@ -1151,6 +1151,11 @@ class moodle_page {
                 // ok
             } else if (strpos($url, '/') === 0) {
                 // we have to use httpswwwroot here, because of loginhttps pages
+                if (strpos($url, '?') !== false or strpos($url, '&') !== false) {
+                    debugging('Invalid character detected in $PAGE->set_url(), use real relative script path.');
+                } else if (!file_exists($CFG->dirroot.$url)) {
+                    debugging('Non-existent path detected in $PAGE->set_url()');
+                }
                 $url = $CFG->httpswwwroot . $url;
             } else {
                 throw new coding_exception('Invalid parameter $url, has to be full url or in shortened form starting with /.');
